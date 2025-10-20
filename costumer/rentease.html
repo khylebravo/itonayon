@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RentEase | Find Your Perfect Place</title>
+    <link rel="stylesheet" href="rentease.css" />
+  </head>
+
+  <body>
+    <!-- NAVBAR -->
+    <nav>
+      <div class="nav-container">
+        <div class="nav-left">
+          <a href="#" class="logo" aria-label="RentEase home">RentEase</a>
+          <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-label="Toggle menu">☰</button>
+          <ul class="nav-links" id="navLinks">
+            <li><a href="#properties">Properties</a></li>
+            <li><a href="#locations">Locations</a></li>
+            <li><a href="#why">Why</a></li>
+            <li><button id="exploreMoreNav" class="nav-explore" type="button">Explore More</button></li>
+          </ul>
+        </div>
+
+        <div class="nav-actions">
+          <button
+            id="notifBtn"
+            class="notif-btn"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="notifMenu"
+            title="Notifications"
+            type="button"
+          >
+            <span class="visually-hidden">Open notifications</span>
+            <!-- small bell SVG icon inline so it always works -->
+            <svg class="icon-img" id="notifIcon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path fill="#07204a" d="M12 2a4 4 0 0 0-4 4v1.1A6.003 6.003 0 0 0 6 13v4l-1 1v1h14v-1l-1-1v-4a6.003 6.003 0 0 0-2-5.9V6a4 4 0 0 0-4-4zM8 20a4 4 0 0 0 8 0H8z"/>
+            </svg>
+            <span id="notifBadge" class="notif-badge" aria-hidden="true">0</span>
+          </button>
+
+          <div class="nav-profile" id="navProfile">
+            <button
+              id="profileBtn"
+              class="profile-btn"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="profileMenu"
+              title="Account"
+              type="button"
+            >
+              <span class="visually-hidden">Open account menu</span>
+              <!-- simple avatar svg -->
+              <svg class="profile-img" id="profileIcon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+                <path fill="#0b5cff" d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 2.5-9 6v2h18v-2c0-3.5-4-6-9-6z"/>
+              </svg>
+            </button>
+
+            <div id="profileMenu" class="profile-menu" role="menu" aria-hidden="true">
+              <button class="menu-item" data-action="profile" role="menuitem" type="button">Profile</button>
+              <button class="menu-item" data-action="bookings" role="menuitem" type="button">Booking History</button>
+              <button class="menu-item" data-action="login" role="menuitem" type="button">Log In</button>
+              <button class="menu-item" data-action="register" role="menuitem" type="button">Register</button>
+              <button class="menu-item" data-action="logout" role="menuitem" type="button">Logout</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero" aria-label="Search rentals hero">
+      <div class="hero-overlay" aria-hidden="true"></div>
+      <div class="hero-content">
+        <h1>Find Your Perfect Home with Ease</h1>
+        <p>Discover apartments, condos, and houses for rent at the best rates—simple, secure, and seamless.</p>
+
+        <form class="search-box" id="searchForm">
+          <input type="text" id="location" name="location" placeholder="Where do you want to live?" required />
+          <input type="date" id="movein" name="movein" required />
+          <input type="number" id="tenants" name="tenants" placeholder="No. of Tenants" min="1" required />
+          <button class="search-btn" type="submit">Search Rentals</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Featured Properties -->
+    <section id="properties">
+      <h2>Featured Properties</h2>
+      <p>Handpicked listings to make your next move effortless</p>
+      <div class="cards" id="featuredProperties" aria-live="polite"></div>
+    </section>
+
+    <!-- Promo -->
+    <section class="promo" aria-label="Special offer">
+      <div class="promo-content">
+        <div class="promo-text">
+          <h2>Special Offer</h2>
+          <p>Get up to 20% off on your first rental payment when you book a verified listing through RentEase today.</p>
+          <button class="promo-btn" type="button">View Offers</button>
+        </div>
+        <img src="https://images.unsplash.com/photo-1505691723518-36a5ac3be353?auto=format&fit=crop&w=1000&q=80" alt="Promotional property image">
+      </div>
+    </section>
+
+    <!-- Locations -->
+    <section id="locations">
+      <h2>Popular Locations</h2>
+      <p>Explore top cities and communities for your next home</p>
+      <div class="cards" id="locationsList" aria-live="polite"></div>
+    </section>
+
+    <!-- Why -->
+    <section id="why">
+      <h2>Why Choose RentEase</h2>
+      <p>We simplify renting by connecting you with trusted listings and seamless tools.</p>
+      <div class="features" id="whyFeatures">
+        <div class="feature"><h4>Verified Listings</h4><p>All properties on RentEase are verified to ensure you rent from legitimate owners and agents.</p></div>
+        <div class="feature"><h4>Smart Search</h4><p>Our intelligent filters and map-based search help you find the right place faster than ever.</p></div>
+        <div class="feature"><h4>Secure Payments</h4><p>Book confidently with RentEase’s protected payment system for both tenants and landlords.</p></div>
+        <div class="feature"><h4>24/7 Support</h4><p>Our support team is always available to assist you at every step of your rental journey.</p></div>
+      </div>
+    </section>
+
+    <!-- Subscribe -->
+    <section class="subscribe" id="contact">
+      <h2>Stay Updated</h2>
+      <p>Get rental tips, property updates, and exclusive deals in your inbox</p>
+      <form id="subscribeForm">
+        <input type="email" id="email" name="email" placeholder="Enter your email" required />
+        <button type="submit">Subscribe</button>
+      </form>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-content">
+        <div class="footer-logo-block">
+          <img class="footer-logo" src="C:\Users\gence\OneDrive\Documents\GitHub\itonayon\photos\logo.svg" alt="RentEase logo">
+          <div>
+            <h4>RentEase</h4>
+            <p>Your trusted platform for finding rental homes with confidence.</p>
+          </div>
+        </div>
+
+        <div class="footer-links">
+          <h4>Company</h4>
+          <ul>
+            <li><a href="#">About Us</a></li>
+            <li><a href="#">Careers</a></li>
+            <li><a href="#">Blog</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-links">
+          <h4>Support</h4>
+          <ul>
+            <li><a href="#">Help Center</a></li>
+            <li><a href="#">Contact Us</a></li>
+            <li><a href="#">Safety Tips</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-contact">
+          <h4>Contact</h4>
+          <p>Email: <a href="mailto:hello@rentease.example">hello@rentease.example</a></p>
+          <p>Phone: <a href="tel:+63200000000">+63 2 0000 0000</a></p>
+          <div class="socials" aria-label="Social links">
+            <a href="#" class="social" aria-label="Facebook"><img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" alt="Facebook" class="social-img"></a>
+            <a href="#" class="social" aria-label="Twitter"><img src="https://cdn-icons-png.flaticon.com/512/733/733579.png" alt="Twitter" class="social-img"></a>
+            <a href="#" class="social" aria-label="Instagram"><img src="https://cdn-icons-png.flaticon.com/512/2111/2111463.png" alt="Instagram" class="social-img"></a>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>© 2024 RentEase. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script src="rentease.js"></script>
+  </body>
+</html>
