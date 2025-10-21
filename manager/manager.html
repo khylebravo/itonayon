@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Manager Dashboard — Full with Users CRUD (Bookings + Rentals Combined)</title>
+  <link rel="stylesheet" href="manager.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div id="app" class="app">
+    <aside class="sidebar card" aria-label="Sidebar navigation">
+      <div class="brand">Manager Dashboard</div>
+      <div class="muted mb">Overview, users, bookings and rental history</div>
+      <nav class="nav" id="nav">
+        <button data-view="overview" class="active">Overview</button>
+        <button data-view="users">Users</button>
+        <button data-view="bookings">Bookings</button>
+        <button data-view="reports">Reports</button>
+        <button data-view="settings">Settings</button>
+      </nav>
+      <div class="quick">
+        <button class="btn" id="addBookingBtn">New Booking</button>
+        <button class="btn ghost" id="addUserBtn">Add User</button>
+      </div>
+    </aside>
+
+    <main class="main" role="main">
+      <header class="topbar">
+        <div class="searchbar" style="display:flex; gap:8px; align-items:center">
+          <input id="globalSearch" class="input" placeholder="Search users, bookings, properties" />
+          <input id="userSearch" class="input" placeholder="Filter users..." />
+        </div>
+        <div class="flex" style="display:flex; gap:8px; align-items:center">
+          <button class="btn ghost" id="exportCSV">Export CSV</button>
+          <div class="tag" id="userRoleTag">Role: Manager</div>
+
+          <div class="auth-info" id="authArea"></div>
+
+          <div class="notif" title="Notifications">
+            <button class="btn ghost" id="notifBtn" aria-label="Notifications" style="padding:6px 8px;">
+              <svg class="icon-bell" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M12 2a6 6 0 00-6 6v3.586l-1.707 1.707A1 1 0 005 15h14a1 1 0 00.707-1.707L18 11.586V8a6 6 0 00-6-6zM7 20a5 5 0 0010 0H7z"/>
+              </svg>
+            </button>
+            <span class="badge" id="notifBadge" style="display:none;">0</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Overview -->
+      <section id="view-overview" class="card" aria-hidden="false">
+        <div class="kpis mb" id="kpiRow"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div class="muted">Revenue (12 months)</div>
+                <div style="font-weight:700; font-size:18px; margin-top:6px" id="revenueTotal">$0</div>
+              </div>
+              <div class="muted-sm">Trend</div>
+            </div>
+            <div style="height:160px; margin-top:12px;">
+              <canvas id="revenueChart" width="400" height="160"></canvas>
+            </div>
+          </div>
+
+          <aside class="card right-col">
+            <div>
+              <div class="muted">Upcoming Check-ins</div>
+              <table class="table small-table" id="upcomingChecks"><thead><tr><th>Guest</th><th>When</th></tr></thead><tbody></tbody></table>
+            </div>
+            <div style="margin-top:12px">
+              <div class="muted">Alerts</div>
+              <div class="muted-sm" id="alerts">No alerts</div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div class="muted">Occupancy by property type</div>
+            <div class="muted-sm">Last 90 days</div>
+          </div>
+          <div style="display:flex; gap:12px;">
+            <div style="flex:1;"><canvas id="occupancyChart" width="600" height="160"></canvas></div>
+            <div style="width:220px">
+              <div class="muted-sm">Legend</div>
+              <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px" id="occupancyLegend"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Users -->
+      <section id="view-users" class="card" aria-hidden="true" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>
+            <div class="muted">Users</div>
+            <div style="font-weight:700; font-size:18px">User Directory</div>
+          </div>
+          <div class="table-search" style="display:flex; gap:8px; align-items:center">
+            <select id="roleFilter" class="select">
+              <option value="">All roles</option>
+              <option value="manager">Manager</option>
+              <option value="staff">Staff</option>
+              <option value="readonly">Read-only</option>
+            </select>
+            <button class="btn" id="openCreateUser">New User</button>
+            <button class="btn ghost" id="exportUsers">Export</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px;">
+          <div style="flex:1; min-width:240px" class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div><strong>Manager</strong><div class="muted-sm">Full access</div></div>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <label style="display:flex; align-items:center; gap:6px;"><input id="selectAllManager" type="checkbox" /> <span class="muted-sm">Select</span></label>
+                <button class="btn" id="managerEnable">Enable</button>
+                <button class="btn ghost" id="managerDisable">Disable</button>
+              </div>
+            </div>
+            <table class="table" id="managerTable"><thead><tr><th></th><th>Name</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>
+          </div>
+
+          <div style="flex:1; min-width:240px" class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div><strong>Staff</strong><div class="muted-sm">Manage bookings</div></div>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <label style="display:flex; align-items:center; gap:6px;"><input id="selectAllStaff" type="checkbox" /> <span class="muted-sm">Select</span></label>
+                <button class="btn" id="staffEnable">Enable</button>
+                <button class="btn ghost" id="staffDisable">Disable</button>
+              </div>
+            </div>
+            <table class="table" id="staffTable"><thead><tr><th></th><th>Name</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>
+          </div>
+
+          <div style="flex:1; min-width:240px" class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div><strong>Read-only</strong><div class="muted-sm">View only</div></div>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <label style="display:flex; align-items:center; gap:6px;"><input id="selectAllRead" type="checkbox" /> <span class="muted-sm">Select</span></label>
+                <button class="btn" id="readEnable">Enable</button>
+                <button class="btn ghost" id="readDisable">Disable</button>
+              </div>
+            </div>
+            <table class="table" id="readTable"><thead><tr><th></th><th>Name</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>
+          </div>
+        </div>
+
+        <div class="user-transactions card" id="userTransactionsPanel" style="display:none; margin-top:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><strong id="txnPanelTitle">Transactions</strong><div class="muted-sm" id="txnPanelSub">Showing recent transactions</div></div>
+            <div><button class="btn ghost" id="closeTxnPanel">Close</button></div>
+          </div>
+          <div class="txn-list" id="txnList"></div>
+        </div>
+      </section>
+
+      <!-- Bookings (rental history remains here at bottom of bookings view) -->
+      <section id="view-bookings" class="card" aria-hidden="true" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>
+            <div class="muted">Bookings & Rental History</div>
+            <div style="font-weight:700; font-size:18px">Manage bookings and view rentals</div>
+          </div>
+          <div class="table-search" style="display:flex; gap:8px; align-items:center;">
+            <input id="bookingSearch" class="input" placeholder="Search bookings or rentals..." />
+            <select id="bookingStatusFilter" class="select">
+              <option value="">All statuses</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="checked_in">Checked-in</option>
+              <option value="checked_out">Checked-out</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <select id="propertyFilterTop" class="select"><option value="">All properties</option></select>
+            <button class="btn" id="newBooking">New Booking</button>
+            <button class="btn ghost" id="exportBookingsRentals">Export</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+          <div style="flex:1">
+            <div class="card" style="margin-bottom:12px">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div><strong>Bookings</strong><div class="muted-sm">Current and upcoming bookings</div></div>
+                <div class="muted-sm">Total: <span id="bookingsCount">0</span></div>
+              </div>
+              <table class="table" id="bookingsTable"><thead><tr><th>Booking ID</th><th>Guest</th><th>Property</th><th>Check-in</th><th>Check-out</th><th>Nights</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>
+            </div>
+
+            <div class="card">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div><strong>Rental History</strong><div class="muted-sm">Past rentals and revenue</div></div>
+                <div class="muted-sm">Total: <span id="rentalsCount">0</span></div>
+              </div>
+              <table class="table" id="rentalsTable"><thead><tr><th>Rental ID</th><th>Property</th><th>Guest</th><th>Period</th><th>Nights</th><th>Gross</th><th>Net</th></tr></thead><tbody></tbody></table>
+            </div>
+          </div>
+
+          <aside class="card" style="width:360px">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <div><strong>Insights</strong><div class="muted-sm">Quick metrics</div></div>
+              <div class="muted-sm" id="insightsSmall">—</div>
+            </div>
+            <div style="margin-bottom:12px">
+              <div class="muted-sm">Upcoming check-ins</div>
+              <table class="table small-table" id="upcomingChecksAside"><thead><tr><th>Guest</th><th>When</th></tr></thead><tbody></tbody></table>
+            </div>
+            <div>
+              <div class="muted-sm">Top properties</div>
+              <ul id="topProperties" class="muted-sm" style="padding-left:16px;margin-top:8px"></ul>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Rentals (separate full view still exists but not in nav) -->
+      <section id="view-rentals" class="card" aria-hidden="true" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>
+            <div class="muted">Rental History</div>
+            <div style="font-weight:700; font-size:18px">All past rentals</div>
+          </div>
+          <div class="table-search" style="display:flex; gap:8px; align-items:center;">
+            <select id="rentalPropertyFilter" class="select"><option value="">All properties</option></select>
+            <button class="btn ghost" id="exportRentals">Export</button>
+          </div>
+        </div>
+        <div class="card">
+          <table class="table" id="rentalsFullTable"><thead><tr><th>Rental ID</th><th>Booking ID</th><th>Property</th><th>Guest</th><th>Period</th><th>Nights</th><th>Gross</th><th>Net</th></tr></thead><tbody></tbody></table>
+        </div>
+      </section>
+
+      <!-- Reports -->
+      <section id="view-reports" class="card" aria-hidden="true" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>
+            <div class="muted">Reports</div>
+            <div style="font-weight:700; font-size:18px">Revenue and occupancy reports</div>
+          </div>
+          <div>
+            <button class="btn" id="downloadReport">Download</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="muted-sm">Placeholder for charts and exportable reports</div>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section id="view-settings" class="card" aria-hidden="true" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>
+            <div class="muted">Settings</div>
+            <div style="font-weight:700; font-size:18px">Preferences and account</div>
+          </div>
+          <div class="small-muted">Saved locally</div>
+        </div>
+
+        <div class="card">
+          <div class="settings-row">
+            <div>
+              <div style="font-weight:600">Dark mode</div>
+              <div class="small-muted">Toggle interface theme</div>
+            </div>
+            <div class="toggle">
+              <label class="switch" id="darkModeSwitch" role="switch" aria-checked="false"><span class="knob"></span></label>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div style="font-weight:600">Email notifications</div>
+              <div class="small-muted">Receive booking and payout emails</div>
+            </div>
+            <div class="toggle">
+              <label class="switch" id="emailNotifSwitch" role="switch" aria-checked="true"><span class="knob"></span></label>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div style="font-weight:600">Auto-export CSV</div>
+              <div class="small-muted">Automatically export bookings every month</div>
+            </div>
+            <div>
+              <select id="autoExportFreq" class="select-small">
+                <option value="off">Off</option>
+                <option value="monthly">Monthly</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div style="font-weight:600">Default currency</div>
+              <div class="small-muted">Used for display and exports</div>
+            </div>
+            <div>
+              <select id="defaultCurrency" class="select-small">
+                <option value="USD">USD</option>
+                <option value="PHP">PHP</option>
+                <option value="EUR">EUR</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="settings-row" style="border-bottom:0">
+            <div>
+              <div style="font-weight:600">Timezone</div>
+              <div class="small-muted">Local timezone for dates</div>
+            </div>
+            <div>
+              <select id="timezoneSelect" class="select-small">
+                <option value="UTC">UTC</option>
+                <option value="Asia/Manila" selected>Asia/Manila</option>
+                <option value="America/Los_Angeles">America/Los_Angeles</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="footer card">Dashboard demo • Mock data • Not connected to backend</div>
+    </main>
+  </div>
+
+  <div id="overlay" class="overlay" role="presentation"></div>
+
+  <aside id="slide" class="slide" aria-hidden="true">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-weight:700" id="slideTitle">Details</div>
+      <div><button class="btn ghost" id="closeSlide">Close</button></div>
+    </div>
+    <div id="slideBody" style="margin-top:12px"></div>
+  </aside>
+
+  <script src="manager.js"></script>
+</body>
+</html>
