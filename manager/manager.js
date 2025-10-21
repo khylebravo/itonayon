@@ -1,9 +1,12 @@
-// Mock data
+/* ========== Modern Dashboard Script ========== */
+/* Keep this file as script.js in same folder as index.html */
+
+/* ========= Mock data ========= */
 const properties = [
-  {id:'p1', name:'Seaside Villa', type:'Villa', location:'Urdaneta', capacity:6},
-  {id:'p2', name:'City Loft', type:'Apartment', location:'Manila', capacity:2},
-  {id:'p3', name:'Mountain Cabin', type:'Cabin', location:'Baguio', capacity:4},
-  {id:'p4', name:'Beach Bungalow', type:'Bungalow', location:'Urdaneta', capacity:4},
+  {id:'p1', name:'Seaside Villa', type:'Villa'},
+  {id:'p2', name:'City Loft', type:'Apartment'},
+  {id:'p3', name:'Mountain Cabin', type:'Cabin'},
+  {id:'p4', name:'Beach Bungalow', type:'Bungalow'},
 ];
 
 let users = [
@@ -32,51 +35,53 @@ const transactions = [
   {id:'T-3004', userId:'u4', date:'2025-09-05', type:'Payout', amount:200, bookingId:'B-0988', note:'August payout'},
 ];
 
-// Utilities
+/* ========= Helpers ========= */
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-function formatCurrency(n){ return '$' + Number(n).toLocaleString('en-US',{minimumFractionDigits:0}); }
 function uid(prefix='u'){ return prefix + Math.random().toString(36).slice(2,9); }
 function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function formatCurrency(n){
+  const v = Number(n) || 0;
+  const cur = localStorage.getItem('md_currency') || 'USD';
+  return (cur === 'PHP') ? '₱' + v.toLocaleString() : '$' + v.toLocaleString();
+}
 
-// Simple auth (demo only, stored in sessionStorage)
-const authKey = 'md_current_user';
-function getCurrentUser(){ try { return JSON.parse(sessionStorage.getItem(authKey)); } catch(e){ return null; } }
-function setCurrentUser(user){ sessionStorage.setItem(authKey, JSON.stringify(user)); }
-function clearCurrentUser(){ sessionStorage.removeItem(authKey); }
-
-// Settings defaults / persistence
+/* Settings */
 const settings = {
   darkMode: (localStorage.getItem('md_dark') === '1'),
   emailNotifications: (localStorage.getItem('md_email_notif') !== '0'),
-  autoExport: localStorage.getItem('md_auto_export') || 'off',
-  currency: localStorage.getItem('md_currency') || 'USD',
-  timezone: localStorage.getItem('md_tz') || 'Asia/Manila'
+  currency: localStorage.getItem('md_currency') || 'USD'
 };
 
 function applySettingsToUI(){
-  if(settings.darkMode) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');
-  const dm = $('#darkModeSwitch'); if(dm){ dm.setAttribute('aria-checked', settings.darkMode); if(settings.darkMode) dm.classList.add('on'); else dm.classList.remove('on'); }
-  const en = $('#emailNotifSwitch'); if(en){ en.setAttribute('aria-checked', settings.emailNotifications); if(settings.emailNotifications) en.classList.add('on'); else en.classList.remove('on'); }
-  $('#autoExportFreq') && ($('#autoExportFreq').value = settings.autoExport);
+  document.documentElement.classList.toggle('dark', settings.darkMode);
+  $('#darkModeSwitch')?.classList.toggle('on', settings.darkMode);
+  $('#darkModeSwitchSettings')?.classList.toggle('on', settings.darkMode);
   $('#defaultCurrency') && ($('#defaultCurrency').value = settings.currency);
-  $('#timezoneSelect') && ($('#timezoneSelect').value = settings.timezone);
 }
-function persistSettings(){
-  localStorage.setItem('md_dark', settings.darkMode ? '1' : '0');
-  localStorage.setItem('md_email_notif', settings.emailNotifications ? '1' : '0');
-  localStorage.setItem('md_auto_export', settings.autoExport);
-  localStorage.setItem('md_currency', settings.currency);
-  localStorage.setItem('md_tz', settings.timezone);
-}
+function persistSettings(){ localStorage.setItem('md_dark', settings.darkMode ? '1' : '0'); localStorage.setItem('md_email_notif', settings.emailNotifications ? '1' : '0'); localStorage.setItem('md_currency', settings.currency); }
 
-// Chart instances (keeps references)
+/* Chart instances */
 let revenueChartInstance = null;
 let occupancyChartInstance = null;
 let revenuePieChartInstance = null;
 
-// Init
+/* ========= Start / Init ========= */
 function init(){
+  // if Chart not present (rare), attempt local fallback loader
+  if(typeof Chart === 'undefined'){
+    console.warn('Chart.js not found via CDN. Attempting to load local fallback js/chart.umd.min.js');
+    const s = document.createElement('script');
+    s.src = 'js/chart.umd.min.js';
+    s.onload = () => { console.info('Loaded local Chart.js fallback'); continueInit(); };
+    s.onerror = () => { console.error('Failed to load Chart.js. Some charts will not render.'); continueInit(); };
+    document.head.appendChild(s);
+  } else {
+    continueInit();
+  }
+}
+
+function continueInit(){
   attachNav();
   renderAuthArea();
   populatePropertyFilter();
@@ -93,7 +98,10 @@ function init(){
   applySettingsToUI();
 }
 
-// Navigation
+/* Run on DOM ready */
+document.addEventListener('DOMContentLoaded', init);
+
+/* ========= NAV & UI ========= */
 function attachNav(){
   $$('#nav button').forEach(b=>{
     b.addEventListener('click', ()=>{
@@ -102,463 +110,534 @@ function attachNav(){
       const view = b.dataset.view;
       ['overview','users','bookings','reports','settings'].forEach(v=>{
         const el = document.getElementById('view-'+v);
-        if(el) el.style.display = (v===view ? '' : 'none');
+        if(!el) return;
+        el.style.display = (v === view ? '' : 'none');
       });
+      document.querySelector('main')?.scrollTo({top:0, behavior:'smooth'});
     });
   });
 }
 
-// Populate property selects
+/* ========= Select population ========= */
 function populatePropertyFilter(){
-  const top = document.getElementById('propertyFilterTop');
-  if(top){ top.innerHTML = '<option value="">All properties</option>'; properties.forEach(p=>{ const opt=document.createElement('option'); opt.value=p.id; opt.textContent=p.name; top.appendChild(opt); }); }
+  const top = $('#propertyFilterTop');
+  if(top){
+    top.innerHTML = '<option value="">All properties</option>';
+    properties.forEach(p=> { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; top.appendChild(o); });
+  }
 }
 function populateRentalPropertyFilter(){
-  const sel = $('#rentalPropertyFilter'); if(!sel) return;
+  const sel = $('#rentalPropertyFilter');
+  if(!sel) return;
   sel.innerHTML = '<option value="">All properties</option>';
-  properties.forEach(p=>{ const opt=document.createElement('option'); opt.value=p.id; opt.textContent=p.name; sel.appendChild(opt); });
+  properties.forEach(p=> { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; sel.appendChild(o); });
 }
 
-// KPIs and charts
+/* ========= KPIs ========= */
 function calculateKPIs(){
   const totalProperties = properties.length;
   const activeBookings = bookings.filter(b=>['confirmed','checked_in'].includes(b.status)).length;
   const occupancyRate = Math.round((activeBookings / Math.max(totalProperties,1)) * 100);
-  const monthlyRevenue = rentals.reduce((s,r)=>s+r.gross,0);
+  const monthlyRevenue = rentals.reduce((s,r)=>s + (r.gross||0), 0);
   return {totalProperties, activeBookings, occupancyRate, monthlyRevenue};
 }
 function renderKPIs(){
-  const k = calculateKPIs(); const container = $('#kpiRow'); container.innerHTML='';
+  const k = calculateKPIs(); const container = $('#kpiRow'); if(!container) return;
+  container.innerHTML = '';
   const cards = [
     {label:'Total Properties', value:k.totalProperties, trend:'+2'},
     {label:'Active Bookings', value:k.activeBookings, trend:'+1'},
-    {label:'Occupancy Rate', value: k.occupancyRate + '%', trend:'+3%'},
+    {label:'Occupancy Rate', value:k.occupancyRate + '%', trend:'+3%'},
     {label:'Monthly Revenue', value: formatCurrency(k.monthlyRevenue), trend:'+8%'},
   ];
-  cards.forEach(c=>{ const div=document.createElement('div'); div.className='kpi card'; div.innerHTML=`<div class="label">${c.label}</div><div class="value">${c.value}</div><div class="delta">${c.trend}</div>`; container.appendChild(div); });
-  $('#revenueTotal').textContent = formatCurrency(k.monthlyRevenue);
+  cards.forEach(c=>{
+    const d = document.createElement('div'); d.className='kpi';
+    d.innerHTML = `<div class="label">${escapeHtml(c.label)}</div><div class="value">${escapeHtml(String(c.value))}</div><div class="delta">${escapeHtml(c.trend)}</div>`;
+    container.appendChild(d);
+  });
+  $('#revenueTotal') && ($('#revenueTotal').textContent = formatCurrency(k.monthlyRevenue));
 }
 
-// Chart.js: revenue line chart
-function renderRevenueChart(){
-  const ctx = document.getElementById('revenueChart');
-  if(!ctx) return;
+/* ========= CHARTS ========= */
+function renderRevenueChart(dataOverride){
+  const el = $('#revenueChart'); if(!el || typeof Chart === 'undefined') return;
+  const ctx = el.getContext('2d');
+
   const labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const data = [200,240,260,300,320,360,400,420,380,460,500,520];
-  if(revenueChartInstance){ revenueChartInstance.data.labels = labels; revenueChartInstance.data.datasets[0].data = data; revenueChartInstance.update(); return; }
-  revenueChartInstance = new Chart(ctx.getContext('2d'), {
-    type: 'line',
-    data: {
+  const baseData = dataOverride || [200,240,260,300,320,360,400,420,380,460,500,520];
+
+  // gradient fill
+  const gradient = ctx.createLinearGradient(0,0,0,el.height || 260);
+  gradient.addColorStop(0, 'rgba(99,102,241,0.28)');
+  gradient.addColorStop(0.6, 'rgba(99,102,241,0.08)');
+  gradient.addColorStop(1, 'rgba(99,102,241,0)');
+
+  if(revenueChartInstance){
+    revenueChartInstance.data.labels = labels;
+    revenueChartInstance.data.datasets[0].data = baseData;
+    revenueChartInstance.update();
+    return;
+  }
+
+  revenueChartInstance = new Chart(ctx, {
+    type:'line',
+    data:{
       labels,
-      datasets: [{
-        label: 'Monthly Revenue',
-        data,
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37,99,235,0.16)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 3,
-        pointHoverRadius: 6
+      datasets:[{
+        label:'Monthly Revenue',
+        data: baseData,
+        borderColor: '#6366f1',
+        backgroundColor: gradient,
+        fill:true,
+        tension:0.36,
+        pointRadius:4,
+        pointHoverRadius:7,
+        borderWidth:2
       }]
     },
-    options: {
-      responsive: true,
-      plugins: {
-        tooltip: { enabled: true, mode: 'index', intersect: false },
-        legend: { display: false }
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ mode:'index', intersect:false, callbacks:{
+          label: ctx => formatCurrency(ctx.raw)
+        }}
       },
-      interaction: { mode: 'nearest', axis: 'x', intersect: false },
-      scales: {
-        y: { beginAtZero: true }
-      }
+      scales:{
+        x:{ grid:{ display:false } },
+        y:{ beginAtZero:true, ticks:{ callback: v => formatCurrency(v) } }
+      },
+      interaction:{ mode:'nearest', axis:'x', intersect:false }
     }
   });
 }
 
-// Chart.js: occupancy bar chart
 function renderOccupancyChart(){
-  const ctx = document.getElementById('occupancyChart');
-  if(!ctx) return;
+  const el = $('#occupancyChart'); if(!el || typeof Chart === 'undefined') return;
+  const ctx = el.getContext('2d');
+
   const types = [...new Set(properties.map(p=>p.type))];
-  const data = types.map((t,i)=> 40 + i*15 + Math.floor(Math.random()*20));
-  const colors = ['#2563eb','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+  const data = types.map((t,i)=> 30 + i*12 + Math.floor(Math.random()*25));
+  const colors = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+
   if(occupancyChartInstance){
     occupancyChartInstance.data.labels = types;
     occupancyChartInstance.data.datasets[0].data = data;
-    occupancyChartInstance.data.datasets[0].backgroundColor = types.map((_,i)=>colors[i%colors.length]);
     occupancyChartInstance.update();
-  } else {
-    occupancyChartInstance = new Chart(ctx.getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: types,
-        datasets: [{
-          label: 'Occupancy Rate (%)',
-          data,
-          backgroundColor: types.map((_,i)=>colors[i%colors.length])
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          tooltip: { enabled: true },
-          legend: { display: false }
-        },
-        scales: {
-          y: { beginAtZero: true, max: 100 }
-        }
-      }
-    });
+    return;
   }
 
-  const legend = $('#occupancyLegend');
-  if(legend){
+  occupancyChartInstance = new Chart(ctx, {
+    type:'bar',
+    data:{ labels: types, datasets:[{ label:'Occupancy (%)', data, backgroundColor: types.map((_,i)=>colors[i%colors.length]), borderRadius:6 }]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, max:100 } } }
+  });
+
+  // legend
+  const legend = $('#occupancyLegend'); if(legend){
     legend.innerHTML = '';
-    types.forEach((t,i)=>{
-      const el = document.createElement('div');
-      el.style.display = 'flex';
-      el.style.alignItems = 'center';
-      el.style.gap = '8px';
-      el.innerHTML = `<span style="display:inline-block;width:12px;height:12px;background:${colors[i%colors.length]};border-radius:3px"></span><span class="txt-sm">${t} — ${data[i]}%</span>`;
+    types.forEach((t,i)=> {
+      const el = document.createElement('div'); el.style.display='flex'; el.style.gap='8px'; el.style.alignItems='center'; el.style.marginBottom='8px';
+      el.innerHTML = `<span style="width:14px;height:14px;background:${colors[i%colors.length]};border-radius:4px;display:inline-block"></span><div class="muted-sm">${t} — ${data[i]}%</div>`;
       legend.appendChild(el);
     });
   }
 }
 
-// Revenue pie chart (by property)
 function renderRevenuePieChart(){
-  // optional: create a small canvas in reports if not present; here we skip if not found
-  const el = document.getElementById('revenuePieChart');
-  if(!el) return;
+  const el = $('#revenuePieChart'); if(!el || typeof Chart === 'undefined') return;
   const ctx = el.getContext('2d');
-  const revenueByProperty = {};
-  rentals.forEach(r=>{
-    const prop = properties.find(p=>p.id===r.propertyId);
-    if(prop) revenueByProperty[prop.name] = (revenueByProperty[prop.name]||0) + r.gross;
+  const map = {};
+  rentals.forEach(r => {
+    const p = properties.find(x=>x.id===r.propertyId);
+    if(p) map[p.name] = (map[p.name]||0) + (r.gross||0);
   });
-  const labels = Object.keys(revenueByProperty);
-  const data = Object.values(revenueByProperty);
-  const colors = ['#2563eb','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+  const labels = Object.keys(map); const data = Object.values(map);
+  const colors = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+
   if(revenuePieChartInstance){
     revenuePieChartInstance.data.labels = labels;
     revenuePieChartInstance.data.datasets[0].data = data;
     revenuePieChartInstance.update();
     return;
   }
+
   revenuePieChartInstance = new Chart(ctx, {
-    type: 'pie',
-    data: {
-      labels,
-      datasets: [{
-        label:'Revenue by Property',
-        data,
-        backgroundColor: labels.map((_,i)=>colors[i%colors.length])
-      }]
-    },
-    options:{
-      responsive:true,
-      plugins:{ legend:{position:'bottom'} }
-    }
+    type:'pie',
+    data:{ labels, datasets:[{ data, backgroundColor: labels.map((_,i)=>colors[i%colors.length]) }]},
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
   });
 }
 
+/* ========= Upcoming checks ========= */
 function fillUpcoming(){
   const tbody = $('#upcomingChecks tbody'); if(!tbody) return;
-  tbody.innerHTML=''; const now=new Date();
-  const upcoming = bookings.filter(b=> new Date(b.checkIn) >= now && (new Date(b.checkIn)-now) < (1000*60*60*24*30)).slice(0,5);
+  tbody.innerHTML = '';
+  const now = new Date();
+  const upcoming = bookings.filter(b => new Date(b.checkIn) >= now && (new Date(b.checkIn)-now) < (1000*60*60*24*30)).slice(0,5);
   if(!upcoming.length){ tbody.innerHTML = '<tr><td colspan="2" class="muted-sm">No upcoming check-ins</td></tr>'; return; }
-  upcoming.forEach(u=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${escapeHtml(u.guest)}</td><td class="muted-sm">${escapeHtml(u.checkIn)}</td>`; tbody.appendChild(tr); });
-  const aside = $('#upcomingChecksAside tbody'); if(aside){ aside.innerHTML=''; upcoming.forEach(u=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${escapeHtml(u.guest)}</td><td class="muted-sm">${escapeHtml(u.checkIn)}</td>`; aside.appendChild(tr); }); }
+  upcoming.forEach(u => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(u.guest)}</td><td class="muted-sm">${escapeHtml(u.checkIn)}</td>`;
+    tbody.appendChild(tr);
+  });
 }
 
-// Render role-specific tables with CRUD controls
+/* ========= Role tables ========= */
 function renderAllRoleTables(filter=''){
-  const f=(filter||'').toLowerCase();
-  renderRoleTable('manager','#managerTable tbody',f);
-  renderRoleTable('staff','#staffTable tbody',f);
-  renderRoleTable('readonly','#readTable tbody',f);
+  const f = (filter||'').toLowerCase();
+  renderRoleTable('manager','#managerTable tbody', f);
+  renderRoleTable('staff','#staffTable tbody', f);
+  renderRoleTable('readonly','#readTable tbody', f);
 }
 function renderRoleTable(role, selector, filterLower){
   const tbody = document.querySelector(selector); if(!tbody) return; tbody.innerHTML = '';
-  users.filter(u => u.role===role && (!filterLower || u.name.toLowerCase().includes(filterLower) || u.email.toLowerCase().includes(filterLower)))
-    .forEach(u => {
-      const tr=document.createElement('tr');
-      tr.innerHTML = `
-        <td style="width:36px"><input type="checkbox" data-uid="${u.id}" class="user-checkbox" /></td>
-        <td>${escapeHtml(u.name)}</td>
-        <td>${escapeHtml(u.email)}</td>
-        <td><span class="switch ${u.status==='active' ? 'on' : ''}" data-uid="${u.id}" role="switch" aria-checked="${u.status==='active'}"><span class="knob"></span></span></td>
-        <td class="row-actions">
-          <button class="view-user" data-id="${u.id}">View</button>
-          <button class="edit-user" data-id="${u.id}">Edit</button>
-          <button class="delete-user" data-id="${u.id}">Delete</button>
-        </td>`;
-      tbody.appendChild(tr);
-    });
+  users.filter(u => u.role === role && (!filterLower || u.name.toLowerCase().includes(filterLower) || u.email.toLowerCase().includes(filterLower))).forEach(u=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="width:36px"><input type="checkbox" class="user-checkbox" data-uid="${u.id}" /></td>
+      <td>${escapeHtml(u.name)}</td>
+      <td>${escapeHtml(u.email)}</td>
+      <td><span class="switch ${u.status==='active' ? 'on' : ''}" data-uid="${u.id}" role="switch" aria-checked="${u.status==='active'}"><span class="knob"></span></span></td>
+      <td class="row-actions"><button class="view-user" data-id="${u.id}">View</button><button class="edit-user" data-id="${u.id}">Edit</button><button class="delete-user" data-id="${u.id}">Delete</button></td>`;
+    tbody.appendChild(tr);
+  });
+
+  // attach handlers
   $$(selector + ' .view-user').forEach(b=> b.addEventListener('click', ()=> openUserView(b.dataset.id)));
-  $$(selector + ' .edit-user').forEach(b=> b.addEventListener('click', ()=> window.openUserEdit ? window.openUserEdit(b.dataset.id) : alert('Edit handler not implemented')));
-  $$(selector + ' .delete-user').forEach(b=> b.addEventListener('click', ()=> window.openUserDelete ? window.openUserDelete(b.dataset.id) : deleteUser(b.dataset.id)));
+  $$(selector + ' .edit-user').forEach(b=> b.addEventListener('click', ()=> alert('Edit (demo): ' + b.dataset.id)));
+  $$(selector + ' .delete-user').forEach(b=> b.addEventListener('click', ()=> deleteUser(b.dataset.id)));
   $$(selector + ' .switch').forEach(sw=> sw.addEventListener('click', ()=> toggleUserStatus(sw.dataset.uid)));
-  $$(selector + ' .user-checkbox').forEach(cb=> cb.addEventListener('change', ()=> {
-    const row = cb.closest('tr'); if(cb.checked) row.classList.add('selected'); else row.classList.remove('selected');
-  }));
+  $$(selector + ' .user-checkbox').forEach(cb=> cb.addEventListener('change', ()=> cb.closest('tr')?.classList.toggle('selected', cb.checked)));
 }
 
-// CRUD helpers
-function createUser(data){ const newUser={id:uid('u'),name:data.name,email:data.email,role:data.role||'staff',status:data.status||'active',joinedAt:new Date().toISOString().slice(0,10),lifetimeRevenue:data.lifetimeRevenue||0}; users.unshift(newUser); renderAllRoleTables($('#userSearch').value||''); }
-function updateUser(id,updates){ const u=users.find(x=>x.id===id); if(!u) return; Object.assign(u,updates); renderAllRoleTables($('#userSearch').value||''); }
-function deleteUser(id){ users = users.filter(x=>x.id!==id); renderAllRoleTables($('#userSearch').value||''); }
-function toggleUserStatus(id){ const u = users.find(x=>x.id===id); if(!u) return; u.status = (u.status === 'active') ? 'inactive' : 'active'; renderAllRoleTables($('#userSearch').value || ''); }
+/* ========= CRUD helpers ========= */
+function createUser(data){ const u = {id:uid('u'), name:data.name, email:data.email, role:data.role||'staff', status:data.status||'active', joinedAt: new Date().toISOString().slice(0,10), lifetimeRevenue:data.lifetimeRevenue||0}; users.unshift(u); renderAllRoleTables($('#userSearch')?.value||''); }
+function updateUser(id, updates){ const u = users.find(x=>x.id===id); if(!u) return; Object.assign(u, updates); renderAllRoleTables($('#userSearch')?.value||''); }
+function deleteUser(id){ users = users.filter(x=>x.id!==id); renderAllRoleTables($('#userSearch')?.value||''); }
+function toggleUserStatus(id){ const u = users.find(x=>x.id===id); if(!u) return; u.status = (u.status === 'active') ? 'inactive' : 'active'; renderAllRoleTables($('#userSearch')?.value||''); }
 
-// User slide / transactions
+/* ========= User slide / transactions ========= */
 function openUserView(id){
   const u = users.find(x=>x.id===id); if(!u) return;
   const userTx = transactions.filter(t=>t.userId===id).sort((a,b)=> new Date(b.date)-new Date(a.date));
-  const txHtml = userTx.length ? userTx.map(tx=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #f1f5f9"><div><strong>${escapeHtml(tx.type)}</strong><div class="muted-sm">${escapeHtml(tx.date)} • ${escapeHtml(tx.note||'')}</div></div><div style="text-align:right"><div style="font-weight:700">${formatCurrency(tx.amount)}</div><div class="muted-sm">${escapeHtml(tx.bookingId||'')}</div></div></div>`).join('') : '<div class="muted-sm">No transactions for this user</div>';
-  const html = `
-    <div style="margin-bottom:8px"><strong>${escapeHtml(u.name)}</strong></div>
+  const txHtml = userTx.length ? userTx.map(tx=> `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--border)"><div><strong>${escapeHtml(tx.type)}</strong><div class="muted-sm">${escapeHtml(tx.date)} • ${escapeHtml(tx.note||'')}</div></div><div style="text-align:right"><div style="font-weight:700">${formatCurrency(tx.amount)}</div><div class="muted-sm">${escapeHtml(tx.bookingId||'')}</div></div></div>`).join('') : '<div class="muted-sm">No transactions</div>';
+
+  const html = `<div style="margin-bottom:8px"><strong>${escapeHtml(u.name)}</strong></div>
     <div class="muted-sm">Email: ${escapeHtml(u.email)}</div>
     <div class="muted-sm">Role: ${escapeHtml(u.role)}</div>
     <div class="muted-sm">Status: ${escapeHtml(u.status)}</div>
-    <div style="margin-top:12px;display:flex;gap:8px;">
-      <button class="btn" id="impersonateBtn">Impersonate</button>
-      <button class="btn ghost" id="openTxBtn">Transactions</button>
-      <button class="btn warn" id="editFromViewBtn">Edit</button>
-    </div>
-    <div style="margin-top:12px">
-      <div style="font-weight:600;margin-bottom:8px">Recent transactions</div>
-      <div>${txHtml}</div>
-    </div>`;
+    <div style="margin-top:12px;display:flex;gap:8px"><button id="impersonateBtn" class="btn">Impersonate</button><button id="openTxBtn" class="btn ghost">Transactions</button><button id="editFromViewBtn" class="btn warn">Edit</button></div>
+    <div style="margin-top:12px"><div style="font-weight:600;margin-bottom:8px">Recent transactions</div>${txHtml}</div>`;
+
   openSlide('User: ' + u.name, html);
-  setTimeout(()=> {
-    $('#impersonateBtn')?.addEventListener('click', ()=> alert('Impersonation demo: ' + u.email));
+  setTimeout(()=>{
+    $('#impersonateBtn')?.addEventListener('click', ()=> alert('Impersonate demo: ' + u.email));
     $('#openTxBtn')?.addEventListener('click', ()=> openTransactionsPanel(u.id));
-    $('#editFromViewBtn')?.addEventListener('click', ()=> { closeSlide(); if(window.openUserEdit) window.openUserEdit(u.id); else alert('Edit handler not implemented'); });
-  },50);
+    $('#editFromViewBtn')?.addEventListener('click', ()=> { closeSlide(); alert('Edit demo'); });
+  },60);
 }
 
 function openTransactionsPanel(userId){
   const u = users.find(x=>x.id===userId); if(!u) return;
   const userTx = transactions.filter(t=>t.userId===userId).sort((a,b)=> new Date(b.date)-new Date(a.date));
-  $('#txnPanelTitle').textContent = `Transactions — ${u.name}`;
-  $('#txnPanelSub').textContent = `Showing ${userTx.length} transaction(s)`;
-  const container = $('#txnList'); container.innerHTML = '';
+  $('#txnPanelTitle') && ($('#txnPanelTitle').textContent = `Transactions — ${u.name}`);
+  $('#txnPanelSub') && ($('#txnPanelSub').textContent = `Showing ${userTx.length} transaction(s)`);
+  const container = $('#txnList'); if(!container) return;
+  container.innerHTML = '';
   if(!userTx.length){ container.innerHTML = '<div class="muted-sm">No transactions found</div>'; $('#userTransactionsPanel').style.display = ''; return; }
   userTx.forEach(tx => {
-    const div = document.createElement('div'); div.className='txn-item';
+    const div = document.createElement('div'); div.className = 'txn-item';
     div.innerHTML = `<div><div style="font-weight:600">${escapeHtml(tx.type)}</div><div class="muted-sm">${escapeHtml(tx.date)} • ${escapeHtml(tx.note||'')}</div></div><div style="text-align:right"><div style="font-weight:700">${formatCurrency(tx.amount)}</div><div class="muted-sm">${escapeHtml(tx.bookingId||'')}</div></div>`;
     container.appendChild(div);
   });
   $('#userTransactionsPanel').style.display = '';
   $('#userTransactionsPanel').scrollIntoView({behavior:'smooth', block:'center'});
 }
-$('#closeTxnPanel').addEventListener('click', ()=> { $('#userTransactionsPanel').style.display = 'none'; });
+$('#closeTxnPanel')?.addEventListener('click', ()=> { $('#userTransactionsPanel').style.display = 'none'; });
 
-// Bookings & rentals population
+/* ========= Bookings & rentals ========= */
 function populateBookingsAndRentals(){
   populateBookingsTable();
   populateRentalsTable();
-  $('#bookingsCount').textContent = bookings.length;
-  $('#rentalsCount').textContent = rentals.length;
-  const top = document.getElementById('topProperties'); if(top){ const counts = {}; rentals.concat(bookings).forEach(r=>{ const pid = r.propertyId; if(pid) counts[pid] = (counts[pid]||0)+1; }); top.innerHTML = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).slice(0,5).map(id=>{ const p = properties.find(x=>x.id===id); return `<li>${p ? p.name : id} — ${counts[id]}</li>`; }).join('') || '<li class="muted-sm">No data</li>'; }
+  $('#bookingsCount') && ($('#bookingsCount').textContent = bookings.length);
+  $('#rentalsCount') && ($('#rentalsCount').textContent = rentals.length);
 }
-
 function populateBookingsTable(){
-  const tbody = $('#bookingsTable tbody'); if(!tbody) return; tbody.innerHTML='';
+  const tbody = $('#bookingsTable tbody'); if(!tbody) return; tbody.innerHTML = '';
   bookings.forEach(b=>{
     const prop = properties.find(p=>p.id===b.propertyId) || {name:'Unknown'};
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${b.id}</td><td>${escapeHtml(b.guest)}</td><td>${prop.name}</td><td>${b.checkIn}</td><td>${b.checkOut}</td><td>${b.nights}</td><td>${formatCurrency(b.amount)}</td><td>${renderStatus(b.status)}</td><td class="row-actions"><button data-id="${b.id}" class="view-booking">Details</button></td>`;
     tbody.appendChild(tr);
   });
-  $$('.view-booking').forEach(b=> b.addEventListener('click', ()=>{ const id=b.dataset.id; const booking = bookings.find(x=>x.id===id); if(!booking) return; const prop = properties.find(p=>p.id===booking.propertyId) || {}; const html = `<div style="margin-bottom:8px"><strong>${booking.id}</strong></div><div class="muted-sm">Guest: ${escapeHtml(booking.guest)}</div><div class="muted-sm">Property: ${prop.name || ''}</div><div class="muted-sm">Period: ${booking.checkIn} → ${booking.checkOut} (${booking.nights} nights)</div><div style="margin-top:8px; font-weight:700">${formatCurrency(booking.amount)}</div><div style="margin-top:12px"><button class="btn" id="checkInBtn">Mark as checked-in</button><button class="btn ghost" id="cancelBookingBtn">Cancel</button></div>`; openSlide('Booking ' + booking.id, html); setTimeout(()=> { $('#checkInBtn')?.addEventListener('click', ()=>{ booking.status='checked_in'; populateBookingsTable(); renderKPIs(); fillUpcoming(); closeSlide(); }); $('#cancelBookingBtn')?.addEventListener('click', ()=>{ booking.status='cancelled'; populateBookingsTable(); renderKPIs(); fillUpcoming(); closeSlide(); }); },50); }));
+
+  $$('.view-booking').forEach(b=> b.addEventListener('click', ()=> {
+    const id = b.dataset.id; const booking = bookings.find(x=>x.id===id); if(!booking) return;
+    const prop = properties.find(p=>p.id===booking.propertyId) || {};
+    const html = `<div style="margin-bottom:8px"><strong>${booking.id}</strong></div>
+      <div class="muted-sm">Guest: ${escapeHtml(booking.guest)}</div>
+      <div class="muted-sm">Property: ${prop.name || ''}</div>
+      <div class="muted-sm">Period: ${booking.checkIn} → ${booking.checkOut} (${booking.nights} nights)</div>
+      <div style="margin-top:8px; font-weight:700">${formatCurrency(booking.amount)}</div>
+      <div style="margin-top:12px"><button id="checkInBtn" class="btn">Mark as checked-in</button><button id="cancelBookingBtn" class="btn ghost">Cancel</button></div>`;
+    openSlide('Booking ' + booking.id, html);
+    setTimeout(()=> {
+      $('#checkInBtn')?.addEventListener('click', ()=> { booking.status = 'checked_in'; populateBookingsAndRentals(); renderKPIs(); fillUpcoming(); closeSlide(); updateNotifBadge(); });
+      $('#cancelBookingBtn')?.addEventListener('click', ()=> { booking.status = 'cancelled'; populateBookingsAndRentals(); renderKPIs(); fillUpcoming(); closeSlide(); updateNotifBadge(); });
+    },60);
+  }));
 }
 
 function populateRentalsTable(){
-  const tbody = $('#rentalsTable tbody'); if(!tbody) return; tbody.innerHTML='';
+  const tbody = $('#rentalsTable tbody'); if(!tbody) return; tbody.innerHTML = '';
   rentals.forEach(r=>{
     const prop = properties.find(p=>p.id===r.propertyId) || {};
     const booking = bookings.find(b=>b.id===r.bookingId) || {};
-    const tr = document.createElement('tr'); tr.innerHTML = `<td>${r.id}</td><td>${prop.name || ''}</td><td>${escapeHtml(booking.guest || '')}</td><td>${r.periodStart} → ${r.periodEnd}</td><td>${r.nights}</td><td>${formatCurrency(r.gross)}</td><td>${formatCurrency(r.net)}</td>`; tbody.appendChild(tr);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.id}</td><td>${prop.name || ''}</td><td>${escapeHtml(booking.guest || '')}</td><td>${r.periodStart} → ${r.periodEnd}</td><td>${r.nights}</td><td>${formatCurrency(r.gross)}</td><td>${formatCurrency(r.net)}</td>`;
+    tbody.appendChild(tr);
   });
-  const tbodyFull = $('#rentalsFullTable tbody'); if(tbodyFull){ tbodyFull.innerHTML=''; rentals.forEach(r=>{ const prop = properties.find(p=>p.id===r.propertyId) || {}; const b = bookings.find(x=>x.id===r.bookingId) || {}; const tr=document.createElement('tr'); tr.innerHTML = `<td>${r.id}</td><td>${r.bookingId}</td><td>${prop.name || ''}</td><td>${escapeHtml(b.guest||'')}</td><td>${r.periodStart} → ${r.periodEnd}</td><td>${r.nights}</td><td>${formatCurrency(r.gross)}</td><td>${formatCurrency(r.net)}</td>`; tbodyFull.appendChild(tr); }); }
 }
 
-function renderStatus(s){ const cls = s==='cancelled' ? 'danger' : (s==='checked_in' ? 'success' : 'warn'); return `<span class="pill ${cls}">${s.replace('_',' ')}</span>`; }
+/* ========= status rendering ========= */
+function renderStatus(s){
+  const cls = s === 'cancelled' ? 'danger' : (s === 'checked_in' ? 'success' : 'warn');
+  return `<span class="pill ${cls}">${s.replace('_',' ')}</span>`;
+}
 
-// Slide controls
-function openSlide(title, html){ $('#slideTitle').textContent = title; $('#slideBody').innerHTML = html; $('#slide').classList.add('open'); $('#overlay').classList.add('show'); $('#slide').setAttribute('aria-hidden','false'); }
-function closeSlide(){ $('#slide').classList.remove('open'); $('#overlay').classList.remove('show'); $('#slide').setAttribute('aria-hidden','true'); }
-$('#closeSlide').addEventListener('click', closeSlide); $('#overlay').addEventListener('click', closeSlide);
+/* ========= Slide panel ========= */
+function openSlide(title, html){
+  $('#slideTitle') && ($('#slideTitle').textContent = title);
+  $('#slideBody') && ($('#slideBody').innerHTML = html);
+  $('#slide')?.classList.add('open');
+  $('#overlay')?.classList.add('show');
+  $('#slide')?.setAttribute('aria-hidden','false');
+}
+function closeSlide(){ $('#slide')?.classList.remove('open'); $('#overlay')?.classList.remove('show'); $('#slide')?.setAttribute('aria-hidden','true'); }
+$('#closeSlide')?.addEventListener('click', closeSlide); $('#overlay')?.addEventListener('click', closeSlide);
 
-// CSV export helper
+/* ========= CSV export ========= */
 function exportCSV(filename, rows){
-  const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename||'export.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  const csv = rows.map(r=> r.map(c=> `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename || 'export.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
-// Auth UI
+/* ========= Auth UI (demo) ========= */
+const authKey = 'md_current_user';
+function getCurrentUser(){ try { return JSON.parse(sessionStorage.getItem(authKey)); } catch(e){ return null; } }
+function setCurrentUser(user){ sessionStorage.setItem(authKey, JSON.stringify(user)); }
+function clearCurrentUser(){ sessionStorage.removeItem(authKey); }
+
 function renderAuthArea(){
   const authArea = $('#authArea'); if(!authArea) return;
   const user = getCurrentUser();
   authArea.innerHTML = '';
   if(user){
-    const span = document.createElement('div'); span.className='small-muted'; span.textContent = user.name + ' (' + user.role + ')';
+    const span = document.createElement('div'); span.className='muted-sm'; span.textContent = user.name + ' (' + user.role + ')';
     const btn = document.createElement('button'); btn.className='btn ghost'; btn.id='logoutBtn'; btn.textContent='Logout';
     authArea.appendChild(span); authArea.appendChild(btn);
-    $('#logoutBtn').addEventListener('click', ()=> { clearCurrentUser(); renderAuthArea(); });
+    $('#logoutBtn')?.addEventListener('click', ()=> { clearCurrentUser(); renderAuthArea(); });
   } else {
     const loginBtn = document.createElement('button'); loginBtn.className='btn'; loginBtn.id='loginBtn'; loginBtn.textContent='Login';
     authArea.appendChild(loginBtn);
-    $('#loginBtn').addEventListener('click', openLoginModal);
+    $('#loginBtn')?.addEventListener('click', openLoginModal);
   }
 }
 
 function openLoginModal(){
   const html = `<div style="font-weight:700;margin-bottom:8px">Sign in</div>
-    <div class="form-row"><div class="col"><input id="li_email" class="input" placeholder="Email" /></div></div>
-    <div class="form-row"><div class="col"><input id="li_password" class="input" placeholder="Password" type="password" /></div></div>
-    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" id="doLogin">Sign in</button><button class="btn ghost" id="cancelLogin">Cancel</button></div>
-    <div class="muted-sm" style="margin-top:10px">Demo sign-in: use any email from mock users list (no real auth)</div>`;
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input id="li_email" class="input" placeholder="Email" />
+      <input id="li_password" class="input" placeholder="Password" type="password" />
+      <div style="display:flex;gap:8px"><button id="doLogin" class="btn">Sign in</button><button id="cancelLogin" class="btn ghost">Cancel</button></div>
+      <div class="muted-sm" style="margin-top:10px">Demo: use any mock user email</div>
+    </div>`;
   openSlide('Login', html);
   setTimeout(()=> {
     $('#cancelLogin')?.addEventListener('click', closeSlide);
     $('#doLogin')?.addEventListener('click', ()=> {
-      const email = ($('#li_email').value || '').trim().toLowerCase();
+      const email = ($('#li_email')?.value || '').trim().toLowerCase();
       if(!email){ alert('Enter email'); return; }
-      const u = users.find(x => x.email.toLowerCase() === email) || {id: uid('u'), name: email.split('@')[0], email, role:'readonly', status:'active'};
+      const u = users.find(x=>x.email === email) || {id: uid('u'), name: email.split('@')[0], email, role:'readonly', status:'active'};
       setCurrentUser({id:u.id, name:u.name, email:u.email, role:u.role});
-      closeSlide();
-      renderAuthArea();
+      closeSlide(); renderAuthArea();
     });
-  },50);
+  },60);
 }
 
-// Attach listeners and wire CRUD buttons + bulk actions + settings + auth
+/* ========= Listeners ========= */
 function attachListeners(){
-  $('#addUserBtn').addEventListener('click', openCreateUser);
-  $('#openCreateUser').addEventListener('click', openCreateUser);
-  $('#addBookingBtn').addEventListener('click', ()=> openModalNewBooking());
-  $('#newBooking').addEventListener('click', ()=> openModalNewBooking());
+  // Create shortcuts
+  $('#addUserBtn')?.addEventListener('click', openCreateUser);
+  $('#openCreateUser')?.addEventListener('click', openCreateUser);
+  $('#addBookingBtn')?.addEventListener('click', openModalNewBooking);
+  $('#newBooking')?.addEventListener('click', openModalNewBooking);
 
-  $('#userSearch').addEventListener('input', e=> renderAllRoleTables(e.target.value || ''));
-  $('#roleFilter').addEventListener('change', ()=> filterByRole($('#roleFilter').value));
+  // Search / filters
+  $('#userSearch')?.addEventListener('input', e => renderAllRoleTables(e.target.value || ''));
+  $('#roleFilter')?.addEventListener('change', ()=> filterByRole($('#roleFilter')?.value || ''));
 
-  $('#exportUsers').addEventListener('click', ()=> {
-    const rows=[['Name','Email','Role','Status','JoinedAt','LifetimeRevenue']]; users.forEach(u=> rows.push([u.name,u.email,u.role,u.status,u.joinedAt||'',u.lifetimeRevenue||0])); exportCSV('users.csv', rows);
+  $('#exportUsers')?.addEventListener('click', ()=> {
+    const rows = [['Name','Email','Role','Status','JoinedAt','LifetimeRevenue']];
+    users.forEach(u => rows.push([u.name,u.email,u.role,u.status,u.joinedAt||'',u.lifetimeRevenue||0]));
+    exportCSV('users.csv', rows);
   });
-  $('#exportCSV').addEventListener('click', ()=> {
-    const rows=[['Booking ID','Guest','Property','Check-in','Check-out','Nights','Amount','Status']]; bookings.forEach(b=>{ const p = properties.find(x=>x.id===b.propertyId) || {}; rows.push([b.id,b.guest,p.name||'',b.checkIn,b.checkOut,b.nights,b.amount,b.status]); }); exportCSV('bookings.csv', rows);
+
+  $('#exportCSV')?.addEventListener('click', ()=> {
+    const rows=[['Booking ID','Guest','Property','Check-in','Check-out','Nights','Amount','Status']];
+    bookings.forEach(b=>{ const p = properties.find(x=>x.id===b.propertyId) || {}; rows.push([b.id,b.guest,p.name||'',b.checkIn,b.checkOut,b.nights,b.amount,b.status]); });
+    exportCSV('bookings.csv', rows);
   });
-  $('#exportBookingsRentals').addEventListener('click', ()=> {
+
+  $('#exportBookingsRentals')?.addEventListener('click', ()=> {
     const rows=[['Type','ID','Property','Guest','Period','Nights','Gross/Amount','Net/Status']];
-    bookings.forEach(b=>{ const p = properties.find(x=>x.id===b.propertyId) || {}; rows.push(['Booking',b.id,p.name||'',b.guest, b.checkIn + ' → ' + b.checkOut, b.nights, b.amount, b.status]); });
-    rentals.forEach(r=>{ const p = properties.find(x=>x.id===r.propertyId) || {}; const b = bookings.find(x=>x.id===r.bookingId) || {}; rows.push(['Rental',r.id,p.name||'', b.guest||'', r.periodStart + ' → ' + r.periodEnd, r.nights, r.gross, r.net]); });
+    bookings.forEach(b=>{ const p = properties.find(x=>x.id===b.propertyId) || {}; rows.push(['Booking',b.id,p.name||'',b.guest,b.checkIn + ' → ' + b.checkOut,b.nights,b.amount,b.status]); });
+    rentals.forEach(r=>{ const p = properties.find(x=>x.id===r.propertyId) || {}; const b = bookings.find(x=>x.id===r.bookingId) || {}; rows.push(['Rental',r.id,p.name||'',b.guest||'', r.periodStart + ' → ' + r.periodEnd, r.nights, r.gross, r.net]); });
     exportCSV('bookings_rentals.csv', rows);
   });
 
-  // Bulk per panel
-  $('#managerEnable').addEventListener('click', ()=> { const ids = getSelectedIdsIn('#managerTable'); if(ids.length) bulkSet(ids,'active'); else alert('Select managers'); });
-  $('#managerDisable').addEventListener('click', ()=> { const ids = getSelectedIdsIn('#managerTable'); if(ids.length) bulkSet(ids,'inactive'); else alert('Select managers'); });
-  $('#staffEnable').addEventListener('click', ()=> { const ids = getSelectedIdsIn('#staffTable'); if(ids.length) bulkSet(ids,'active'); else alert('Select staff'); });
-  $('#staffDisable').addEventListener('click', ()=> { const ids = getSelectedIdsIn('#staffTable'); if(ids.length) bulkSet(ids,'inactive'); else alert('Select staff'); });
-  $('#readEnable').addEventListener('click', ()=> { const ids = getSelectedIdsIn('#readTable'); if(ids.length) bulkSet(ids,'active'); else alert('Select read-only users'); });
-  $('#readDisable').addEventListener('click', ()=> { const ids = getSelectedIdsIn('#readTable'); if(ids.length) bulkSet(ids,'inactive'); else alert('Select read-only users'); });
+  // Bulk actions
+  $('#managerEnable')?.addEventListener('click', ()=> { const ids = getSelectedIdsIn('#managerTable'); if(ids.length) bulkSet(ids,'active'); else alert('Select managers'); });
+  $('#managerDisable')?.addEventListener('click', ()=> { const ids = getSelectedIdsIn('#managerTable'); if(ids.length) bulkSet(ids,'inactive'); else alert('Select managers'); });
+  $('#staffEnable')?.addEventListener('click', ()=> { const ids = getSelectedIdsIn('#staffTable'); if(ids.length) bulkSet(ids,'active'); else alert('Select staff'); });
+  $('#staffDisable')?.addEventListener('click', ()=> { const ids = getSelectedIdsIn('#staffTable'); if(ids.length) bulkSet(ids,'inactive'); else alert('Select staff'); });
+  $('#readEnable')?.addEventListener('click', ()=> { const ids = getSelectedIdsIn('#readTable'); if(ids.length) bulkSet(ids,'active'); else alert('Select read-only users'); });
+  $('#readDisable')?.addEventListener('click', ()=> { const ids = getSelectedIdsIn('#readTable'); if(ids.length) bulkSet(ids,'inactive'); else alert('Select read-only users'); });
 
-  // Select-all checkboxes
-  $('#selectAllManager').addEventListener('change', e=> selectAllIn('#managerTable', e.target.checked));
-  $('#selectAllStaff').addEventListener('change', e=> selectAllIn('#staffTable', e.target.checked));
-  $('#selectAllRead').addEventListener('change', e=> selectAllIn('#readTable', e.target.checked));
+  // select-all
+  $('#selectAllManager')?.addEventListener('change', e => selectAllIn('#managerTable', e.target.checked));
+  $('#selectAllStaff')?.addEventListener('change', e => selectAllIn('#staffTable', e.target.checked));
+  $('#selectAllRead')?.addEventListener('change', e => selectAllIn('#readTable', e.target.checked));
 
-  // Booking & rentals search & filter (combined)
-  $('#bookingSearch').addEventListener('input', e=>{
-    const q=e.target.value.toLowerCase(); const tbodyB=$('#bookingsTable tbody'); const tbodyR=$('#rentalsTable tbody');
-    tbodyB.innerHTML=''; tbodyR.innerHTML='';
-    bookings.filter(b=> b.id.toLowerCase().includes(q) || b.guest.toLowerCase().includes(q) || (b.propertyId && properties.find(p=>p.id===b.propertyId).name.toLowerCase().includes(q))).forEach(b=>{ const p = properties.find(x=>x.id===b.propertyId)||{}; const tr=document.createElement('tr'); tr.innerHTML=`<td>${b.id}</td><td>${escapeHtml(b.guest)}</td><td>${p.name||''}</td><td>${b.checkIn}</td><td>${b.checkOut}</td><td>${b.nights}</td><td>${formatCurrency(b.amount)}</td><td>${renderStatus(b.status)}</td><td class="row-actions"><button data-id="${b.id}" class="view-booking">Details</button></td>`; tbodyB.appendChild(tr); });
-    rentals.filter(r=> r.id.toLowerCase().includes(q) || (r.bookingId && bookings.find(b=>b.id===r.bookingId)?.guest.toLowerCase().includes(q)) || (r.propertyId && properties.find(p=>p.id===r.propertyId).name.toLowerCase().includes(q))).forEach(r=>{ const p = properties.find(x=>x.id===r.propertyId)||{}; const b = bookings.find(x=>x.id===r.bookingId)||{}; const tr=document.createElement('tr'); tr.innerHTML=`<td>${r.id}</td><td>${p.name||''}</td><td>${escapeHtml(b.guest||'')}</td><td>${r.periodStart} → ${r.periodEnd}</td><td>${r.nights}</td><td>${formatCurrency(r.gross)}</td><td>${formatCurrency(r.net)}</td>`; tbodyR.appendChild(tr); });
+  // booking search / filters
+  $('#bookingSearch')?.addEventListener('input', e => {
+    const q = (e.target.value || '').toLowerCase();
+    const tbodyB = $('#bookingsTable tbody'); const tbodyR = $('#rentalsTable tbody');
+    if(tbodyB) tbodyB.innerHTML = '';
+    if(tbodyR) tbodyR.innerHTML = '';
+    bookings.filter(b=> b.id.toLowerCase().includes(q) || b.guest.toLowerCase().includes(q) || (properties.find(p=>p.id===b.propertyId)?.name || '').toLowerCase().includes(q)).forEach(b=>{
+      const p = properties.find(x=>x.id===b.propertyId)||{};
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${b.id}</td><td>${escapeHtml(b.guest)}</td><td>${p.name||''}</td><td>${b.checkIn}</td><td>${b.checkOut}</td><td>${b.nights}</td><td>${formatCurrency(b.amount)}</td><td>${renderStatus(b.status)}</td><td class="row-actions"><button data-id="${b.id}" class="view-booking">Details</button></td>`;
+      tbodyB && tbodyB.appendChild(tr);
+    });
+
+    rentals.filter(r=> r.id.toLowerCase().includes(q) || (bookings.find(b=>b.id===r.bookingId)?.guest || '').toLowerCase().includes(q) || (properties.find(p=>p.id===r.propertyId)?.name || '').toLowerCase().includes(q)).forEach(r=>{
+      const p = properties.find(x=>x.id===r.propertyId)||{}; const b = bookings.find(x=>x.id===r.bookingId)||{};
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.id}</td><td>${p.name||''}</td><td>${escapeHtml(b.guest||'')}</td><td>${r.periodStart} → ${r.periodEnd}</td><td>${r.nights}</td><td>${formatCurrency(r.gross)}</td><td>${formatCurrency(r.net)}</td>`;
+      tbodyR && tbodyR.appendChild(tr);
+    });
   });
-  $('#bookingStatusFilter').addEventListener('change', e=>{
-    const val=e.target.value; const tbodyB=$('#bookingsTable tbody'); tbodyB.innerHTML='';
-    bookings.filter(b=> !val || b.status===val).forEach(b=>{ const p = properties.find(x=>x.id===b.propertyId)||{}; const tr=document.createElement('tr'); tr.innerHTML=`<td>${b.id}</td><td>${escapeHtml(b.guest)}</td><td>${p.name||''}</td><td>${b.checkIn}</td><td>${b.checkOut}</td><td>${b.nights}</td><td>${formatCurrency(b.amount)}</td><td>${renderStatus(b.status)}</td><td class="row-actions"><button data-id="${b.id}" class="view-booking">Details</button></td>`; tbodyB.appendChild(tr); });
+
+  $('#bookingStatusFilter')?.addEventListener('change', e => {
+    const val = e.target.value; const tbodyB = $('#bookingsTable tbody'); if(!tbodyB) return; tbodyB.innerHTML = '';
+    bookings.filter(b=> !val || b.status === val).forEach(b=> {
+      const p = properties.find(x=>x.id===b.propertyId)||{};
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${b.id}</td><td>${escapeHtml(b.guest)}</td><td>${p.name||''}</td><td>${b.checkIn}</td><td>${b.checkOut}</td><td>${b.nights}</td><td>${formatCurrency(b.amount)}</td><td>${renderStatus(b.status)}</td><td class="row-actions"><button data-id="${b.id}" class="view-booking">Details</button></td>`;
+      tbodyB.appendChild(tr);
+    });
   });
 
   $('#propertyFilterTop')?.addEventListener('change', e=>{
-    const pid = e.target.value; const tbodyB=$('#bookingsTable tbody'); const tbodyR=$('#rentalsTable tbody'); tbodyB.innerHTML=''; tbodyR.innerHTML='';
-    bookings.filter(b=> !pid || b.propertyId===pid).forEach(b=>{ const p = properties.find(x=>x.id===b.propertyId)||{}; const tr=document.createElement('tr'); tr.innerHTML=`<td>${b.id}</td><td>${escapeHtml(b.guest)}</td><td>${p.name||''}</td><td>${b.checkIn}</td><td>${b.checkOut}</td><td>${b.nights}</td><td>${formatCurrency(b.amount)}</td><td>${renderStatus(b.status)}</td><td class="row-actions"><button data-id="${b.id}" class="view-booking">Details</button></td>`; tbodyB.appendChild(tr); });
-    rentals.filter(r=> !pid || r.propertyId===pid).forEach(r=>{ const p = properties.find(x=>x.id===r.propertyId)||{}; const b = bookings.find(x=>x.id===r.bookingId)||{}; const tr=document.createElement('tr'); tr.innerHTML=`<td>${r.id}</td><td>${p.name||''}</td><td>${escapeHtml(b.guest||'')}</td><td>${r.periodStart} → ${r.periodEnd}</td><td>${r.nights}</td><td>${formatCurrency(r.gross)}</td><td>${formatCurrency(r.net)}</td>`; tbodyR.appendChild(tr); });
+    const pid = e.target.value; const tbodyB = $('#bookingsTable tbody'); const tbodyR = $('#rentalsTable tbody');
+    if(tbodyB) tbodyB.innerHTML = ''; if(tbodyR) tbodyR.innerHTML = '';
+    bookings.filter(b=> !pid || b.propertyId === pid).forEach(b=> {
+      const p = properties.find(x=>x.id===b.propertyId)||{};
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${b.id}</td><td>${escapeHtml(b.guest)}</td><td>${p.name||''}</td><td>${b.checkIn}</td><td>${b.checkOut}</td><td>${b.nights}</td><td>${formatCurrency(b.amount)}</td><td>${renderStatus(b.status)}</td><td class="row-actions"><button data-id="${b.id}" class="view-booking">Details</button></td>`;
+      tbodyB.appendChild(tr);
+    });
+
+    rentals.filter(r=> !pid || r.propertyId === pid).forEach(r=>{
+      const p = properties.find(x=>x.id===r.propertyId)||{}; const b = bookings.find(x=>x.id===r.bookingId)||{};
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.id}</td><td>${p.name||''}</td><td>${escapeHtml(b.guest||'')}</td><td>${r.periodStart} → ${r.periodEnd}</td><td>${r.nights}</td><td>${formatCurrency(r.gross)}</td><td>${formatCurrency(r.net)}</td>`;
+      tbodyR && tbodyR.appendChild(tr);
+    });
   });
 
-  // Rentals full export filter
+  // rental export filter (if exists)
   $('#rentalPropertyFilter')?.addEventListener('change', e=>{
-    const pid=e.target.value; const tbody = $('#rentalsFullTable tbody'); if(!tbody) return; tbody.innerHTML='';
-    rentals.filter(r=> !pid || r.propertyId===pid).forEach(r=>{ const p = properties.find(x=>x.id===r.propertyId) || {}; const b = bookings.find(x=>x.id===r.bookingId) || {}; const tr=document.createElement('tr'); tr.innerHTML = `<td>${r.id}</td><td>${r.bookingId}</td><td>${p.name || ''}</td><td>${escapeHtml(b.guest||'')}</td><td>${r.periodStart} → ${r.periodEnd}</td><td>${r.nights}</td><td>${formatCurrency(r.gross)}</td><td>${formatCurrency(r.net)}</td>`; tbody.appendChild(tr); });
+    const pid = e.target.value; const tbody = $('#rentalsFullTable tbody'); if(!tbody) return; tbody.innerHTML = '';
+    rentals.filter(r=> !pid || r.propertyId === pid).forEach(r=> { const p = properties.find(x=>x.id===r.propertyId)||{}; const b = bookings.find(x=>x.id===r.bookingId)||{}; const tr = document.createElement('tr'); tr.innerHTML = `<td>${r.id}</td><td>${r.bookingId}</td><td>${p.name||''}</td><td>${escapeHtml(b.guest||'')}</td><td>${r.periodStart} → ${r.periodEnd}</td><td>${r.nights}</td><td>${formatCurrency(r.gross)}</td><td>${formatCurrency(r.net)}</td>`; tbody.appendChild(tr); });
   });
 
-  // Create booking/user shortcuts
-  document.addEventListener('keydown', e=> { if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='n'){ e.preventDefault(); openCreateUser(); } });
+  // keyboard shortcut: Ctrl/Cmd+N -> new user
+  document.addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey) && e.key.toLowerCase() === 'n'){ e.preventDefault(); openCreateUser(); } });
 
-  // Notification button
+  // notifications
   $('#notifBtn')?.addEventListener('click', ()=> {
     const alerts = getAlerts();
-    const html = `<div style="font-weight:700;margin-bottom:8px">Notifications</div>
-      <div class="muted-sm">${alerts.length} notification(s)</div>
-      <div style="margin-top:12px">${alerts.length ? alerts.map(a=>`<div style="padding:8px;border-bottom:1px dashed #f1f5f9"><div style="font-weight:600">${escapeHtml(a.title)}</div><div class="muted-sm">${escapeHtml(a.body)}</div></div>`).join('') : '<div class="muted-sm">No notifications</div>'}</div>`;
+    const html = `<div style="font-weight:700;margin-bottom:8px">Notifications</div><div class="muted-sm">${alerts.length} notification(s)</div><div style="margin-top:12px">${alerts.length ? alerts.map(a=>`<div style="padding:8px;border-bottom:1px dashed var(--border)"><div style="font-weight:600">${escapeHtml(a.title)}</div><div class="muted-sm">${escapeHtml(a.body)}</div></div>`).join('') : '<div class="muted-sm">No notifications</div>'}</div>`;
     openSlide('Notifications', html);
   });
 
-  // Settings controls
-  $('#darkModeSwitch')?.addEventListener('click', ()=>{
-    settings.darkMode = !settings.darkMode; persistSettings(); applySettingsToUI();
-  });
-  $('#emailNotifSwitch')?.addEventListener('click', ()=>{
-    settings.emailNotifications = !settings.emailNotifications; persistSettings(); applySettingsToUI();
-  });
-  $('#autoExportFreq')?.addEventListener('change', e=>{ settings.autoExport = e.target.value; persistSettings(); });
-  $('#defaultCurrency')?.addEventListener('change', e=>{ settings.currency = e.target.value; persistSettings(); });
-  $('#timezoneSelect')?.addEventListener('change', e=>{ settings.timezone = e.target.value; persistSettings(); });
+  // settings toggles
+  $('#darkModeSwitch')?.addEventListener('click', ()=> { settings.darkMode = !settings.darkMode; persistSettings(); applySettingsToUI(); });
+  $('#darkModeSwitchSettings')?.addEventListener('click', ()=> { settings.darkMode = !settings.darkMode; persistSettings(); applySettingsToUI(); });
+  $('#emailNotifSwitch')?.addEventListener('click', ()=> { settings.emailNotifications = !settings.emailNotifications; persistSettings(); });
 
-  // Export rentals
-  $('#exportRentals')?.addEventListener('click', ()=> {
-    const rows=[['Rental ID','Booking ID','Property','Guest','Period','Nights','Gross','Net']]; rentals.forEach(r=>{ const p = properties.find(x=>x.id===r.propertyId)||{}; const b = bookings.find(x=>x.id===r.bookingId)||{}; rows.push([r.id,r.bookingId,p.name||'', b.guest||'', r.periodStart + ' → ' + r.periodEnd, r.nights, r.gross, r.net]); }); exportCSV('rentals.csv', rows);
-  });
+  $('#defaultCurrency')?.addEventListener('change', e=> { settings.currency = e.target.value; persistSettings(); renderKPIs(); populateBookingsAndRentals(); });
 
-  // Refresh
-  $('#refreshBtn')?.addEventListener('click', ()=> { renderAllRoleTables($('#userSearch').value || ''); populateBookingsAndRentals(); renderKPIs(); });
+  // randomize / reset chart actions
+  $('#randomizeChart')?.addEventListener('click', ()=> {
+    const arr = Array.from({length:12}, ()=> Math.round(150 + Math.random()*450));
+    renderRevenueChart(arr);
+  });
+  $('#resetChart')?.addEventListener('click', ()=> renderRevenueChart());
+
+  // sidebar toggle (mobile)
+  $('#hamburger')?.addEventListener('click', ()=> { const sb = $('#sidebar'); if(sb) sb.style.display = (sb.style.display === 'none' ? '' : 'none'); });
+  $('#sidebarClose')?.addEventListener('click', ()=> { const sb = $('#sidebar'); if(sb) sb.style.display = 'none'; });
+
+  // booking / create modals wired in small helpers below
 }
 
-// Bulk helpers & others
+/* ========= Bulk helpers ========= */
 function getSelectedIdsIn(tableSelector){ return Array.from(document.querySelectorAll(tableSelector + ' .user-checkbox')).filter(c=>c.checked).map(c=>c.dataset.uid); }
-function bulkSet(ids, status){ ids.forEach(id => { const u = users.find(x=>x.id===id); if(u) u.status = status; }); renderAllRoleTables($('#userSearch').value || ''); }
-function bulkDelete(ids){ users = users.filter(u => !ids.includes(u.id)); renderAllRoleTables($('#userSearch').value || ''); }
-function selectAllIn(tableSelector, checked){ Array.from(document.querySelectorAll(tableSelector + ' .user-checkbox')).forEach(cb=>{ cb.checked=checked; cb.dispatchEvent(new Event('change')); }); }
+function bulkSet(ids, status){ ids.forEach(id => { const u = users.find(x=>x.id===id); if(u) u.status = status; }); renderAllRoleTables($('#userSearch')?.value || ''); }
+function selectAllIn(tableSelector, checked){ Array.from(document.querySelectorAll(tableSelector + ' .user-checkbox')).forEach(cb=>{ cb.checked = checked; cb.dispatchEvent(new Event('change')); }); }
 
-// Alerts / notifications
+/* ========= Alerts ========= */
 function getAlerts(){
   const alerts = []; const now = new Date();
-  bookings.forEach(b => { const diff = (new Date(b.checkIn) - now) / (1000*60*60*24); if(diff >=0 && diff <= 7 && b.status === 'confirmed') alerts.push({title:`Upcoming check-in: ${b.guest}`, body:`${b.id} • ${b.checkIn}`}); if(b.status === 'cancelled') alerts.push({title:`Cancelled booking: ${b.id}`, body: `${b.guest}`}); });
+  bookings.forEach(b => {
+    const diff = (new Date(b.checkIn) - now) / (1000*60*60*24);
+    if(diff >= 0 && diff <= 7 && b.status === 'confirmed') alerts.push({title:`Upcoming check-in: ${b.guest}`, body:`${b.id} • ${b.checkIn}`});
+    if(b.status === 'cancelled') alerts.push({title:`Cancelled booking: ${b.id}`, body: b.guest});
+  });
   return alerts;
 }
-function updateNotifBadge(){ const alerts = getAlerts(); const badge = $('#notifBadge'); if(!badge) return; if(alerts.length){ badge.style.display='inline-block'; badge.textContent = String(alerts.length); } else { badge.style.display='none'; } }
+function updateNotifBadge(){
+  const alerts = getAlerts(); const badge = $('#notifBadge'); if(!badge) return;
+  if(alerts.length){ badge.style.display = 'inline-block'; badge.textContent = String(alerts.length); } else { badge.style.display = 'none'; }
+}
 
-// Small helpers & placeholders for missing UI pieces
+/* ========= small UI helpers ========= */
 function openCreateUser(){
   const html = `<div style="font-weight:700;margin-bottom:8px">Create user</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <input id="cu_name" class="input" placeholder="Name" />
       <input id="cu_email" class="input" placeholder="Email" />
       <select id="cu_role" class="select"><option value="staff">Staff</option><option value="manager">Manager</option><option value="readonly">Read-only</option></select>
-      <div style="display:flex;gap:8px"><button class="btn" id="cu_create">Create</button><button class="btn ghost" id="cu_cancel">Cancel</button></div>
+      <div style="display:flex;gap:8px"><button id="cu_create" class="btn">Create</button><button id="cu_cancel" class="btn ghost">Cancel</button></div>
     </div>`;
   openSlide('New user', html);
-  setTimeout(()=>{
+  setTimeout(()=> {
     $('#cu_cancel')?.addEventListener('click', closeSlide);
-    $('#cu_create')?.addEventListener('click', ()=>{
-      const name = ($('#cu_name').value||'').trim(); const email = ($('#cu_email').value||'').trim().toLowerCase();
+    $('#cu_create')?.addEventListener('click', ()=> {
+      const name = ($('#cu_name')?.value || '').trim(), email = ($('#cu_email')?.value || '').trim().toLowerCase();
       if(!name || !email){ alert('Enter name and email'); return; }
-      createUser({name,email,role:$('#cu_role').value}); closeSlide();
+      createUser({name,email,role:$('#cu_role')?.value}); closeSlide();
     });
-  },50);
+  },60);
 }
+
 function openModalNewBooking(){
   const html = `<div style="font-weight:700;margin-bottom:8px">New booking</div>
     <div style="display:flex;flex-direction:column;gap:8px">
@@ -566,33 +645,38 @@ function openModalNewBooking(){
       <select id="nb_property" class="select">${properties.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</select>
       <input id="nb_checkin" class="input" placeholder="Check-in YYYY-MM-DD" />
       <input id="nb_checkout" class="input" placeholder="Check-out YYYY-MM-DD" />
-      <div style="display:flex;gap:8px"><button class="btn" id="nb_create">Create</button><button class="btn ghost" id="nb_cancel">Cancel</button></div>
+      <div style="display:flex;gap:8px"><button id="nb_create" class="btn">Create</button><button id="nb_cancel" class="btn ghost">Cancel</button></div>
     </div>`;
   openSlide('New booking', html);
-  setTimeout(()=>{
+  setTimeout(()=> {
     $('#nb_cancel')?.addEventListener('click', closeSlide);
-    $('#nb_create')?.addEventListener('click', ()=>{
-      const guest = ($('#nb_guest').value||'').trim(); const pid = $('#nb_property').value; const ci = ($('#nb_checkin').value||'').trim(); const co = ($('#nb_checkout').value||'').trim();
-      if(!guest||!pid||!ci||!co){ alert('Complete fields'); return; }
-      const nights = Math.max(1, (new Date(co) - new Date(ci))/(1000*60*60*24) || 1);
+    $('#nb_create')?.addEventListener('click', ()=> {
+      const guest = ($('#nb_guest')?.value||'').trim(); const pid = $('#nb_property')?.value; const ci = ($('#nb_checkin')?.value||'').trim(); const co = ($('#nb_checkout')?.value||'').trim();
+      if(!guest || !pid || !ci || !co){ alert('Complete fields'); return; }
+      const nights = Math.max(1, Math.round((new Date(co) - new Date(ci)) / (1000*60*60*24)) || 1);
       const amount = 100 * nights;
       const id = 'B-' + (Math.random().toString().slice(2,7));
       bookings.unshift({id,guest,propertyId:pid,checkIn:ci,checkOut:co,nights,amount,status:'confirmed',paymentStatus:'pending',createdAt:new Date().toISOString().slice(0,10)});
-      populateBookingsAndRentals(); renderKPIs(); fillUpcoming(); closeSlide();
+      populateBookingsAndRentals(); renderKPIs(); fillUpcoming(); updateNotifBadge(); closeSlide();
     });
-  },50);
+  },60);
 }
+
+/* ========= role filtering ========= */
 function filterByRole(role){
-  if(!role){ renderAllRoleTables($('#userSearch').value||''); return; }
+  if(!role){ renderAllRoleTables($('#userSearch')?.value || ''); document.querySelectorAll('.role-card').forEach(el=>el.style.display=''); return; }
   renderAllRoleTables('');
-  // hide panels that are not the selected role for clarity (optional)
-  ['managerTable','staffTable','readTable'].forEach(id=>{
-    const el = document.getElementById(id);
-    if(!el) return;
-    if((role==='manager' && id==='managerTable') || (role==='staff' && id==='staffTable') || (role==='readonly' && id==='readTable')) el.closest('.card').style.display='';
-    else el.closest('.card').style.display='none';
+  document.querySelectorAll('.role-card').forEach(el=>{
+    const id = el.querySelector('table')?.id;
+    if((role==='manager' && id==='managerTable') || (role==='staff' && id==='staffTable') || (role==='readonly' && id==='readTable')) el.style.display=''; else el.style.display='none';
   });
 }
 
-// Init
-init();
+/* ========= initial render helper ========= */
+function renderAllData(){
+  renderKPIs(); renderRevenueChart(); renderOccupancyChart(); renderRevenuePieChart(); fillUpcoming(); renderAllRoleTables(); populateBookingsAndRentals(); updateNotifBadge();
+}
+
+/* ========= attach listeners and initial render ========= */
+attachListeners();
+renderAllData();
