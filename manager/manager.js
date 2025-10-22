@@ -270,6 +270,221 @@ function renderRevenuePieChart(){
   });
 }
 
+// ==========================
+// 🏨 PROPERTIES SECTION (exclusive to Properties page)
+// ==========================
+document.addEventListener("DOMContentLoaded", () => {
+  const main = document.querySelector("main");
+  if (!main) return;
+
+  // --- Prepare Properties Section ---
+  let propertiesSection;
+
+  // --- Sidebar Button ---
+  const propBtn = document.querySelector('[data-view="properties"]');
+  if (propBtn) {
+    propBtn.addEventListener("click", () => {
+      // Hide all other sections
+      document.querySelectorAll(".view").forEach((v) => {
+        v.style.display = "none";
+        v.setAttribute("aria-hidden", "true");
+      });
+
+      // Create or show Properties Section
+      if (!propertiesSection) {
+        propertiesSection = document.createElement("section");
+        propertiesSection.className = "view card";
+        propertiesSection.id = "view-properties";
+        propertiesSection.setAttribute("aria-hidden", "false");
+        propertiesSection.style.display = "block";
+
+        propertiesSection.innerHTML = `
+          <div class="section-head">
+            <div>
+              <div class="muted">Properties</div>
+              <h2>Manage Properties</h2>
+            </div>
+            <button id="addPropertyBtn" class="btn">Add Property</button>
+          </div>
+
+          <div class="card elevated" style="overflow-x:auto;">
+            <table id="propertiesTable" class="table" style="width:100%;">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Image</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Location</th>
+                  <th>Rooms</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        `;
+        main.appendChild(propertiesSection);
+
+        // --- Logic only loads when Properties is opened ---
+        let properties = JSON.parse(localStorage.getItem("properties") || "[]");
+        const tableBody = propertiesSection.querySelector("#propertiesTable tbody");
+
+        const saveAndRender = () => {
+          localStorage.setItem("properties", JSON.stringify(properties));
+          renderProperties();
+        };
+
+        const renderProperties = () => {
+          tableBody.innerHTML = "";
+          if (properties.length === 0) {
+            tableBody.innerHTML = `
+              <tr><td colspan="7" class="muted-sm" style="text-align:center;">No properties added yet.</td></tr>
+            `;
+            return;
+          }
+          properties.forEach((p, i) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${p.id}</td>
+              <td><img src="${p.image || "https://via.placeholder.com/80"}" alt="${p.name}" style="width:80px;height:60px;object-fit:cover;border-radius:6px;"></td>
+              <td>${p.name}</td>
+              <td>${p.type}</td>
+              <td>${p.location}</td>
+              <td>${p.rooms}</td>
+              <td>
+                <button class="btn ghost edit-btn" data-index="${i}">Edit</button>
+                <button class="btn ghost danger delete-btn" data-index="${i}">Delete</button>
+              </td>
+            `;
+            tableBody.appendChild(row);
+          });
+        };
+        renderProperties();
+
+        // --- Modal Form ---
+        const openPropertyForm = (editIndex = null) => {
+          const editing = editIndex !== null;
+          const existing = editing ? properties[editIndex] : {};
+
+          const overlay = document.createElement("div");
+          overlay.className = "modal-overlay";
+          overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(6px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+          `;
+
+          const dark = document.body.classList.contains("dark-mode");
+          const bg = dark ? "#1f1f1f" : "#fff";
+          const fg = dark ? "#f2f2f2" : "#111";
+          const border = dark ? "#333" : "#ccc";
+
+          const form = document.createElement("div");
+          form.style.cssText = `
+            background:${bg};
+            color:${fg};
+            border:1px solid ${border};
+            padding:24px;
+            border-radius:16px;
+            width:90%;
+            max-width:440px;
+            box-shadow:0 6px 24px rgba(0,0,0,0.4);
+            animation:fadeInScale .25s ease;
+          `;
+          form.innerHTML = `
+            <h3 style="text-align:center;margin-bottom:12px;">${editing ? "Edit Property" : "Add Property"}</h3>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <label>ID</label>
+              <input id="propID" class="input" value="${editing ? existing.id : Date.now()}" readonly />
+              <label>Name</label>
+              <input id="propName" class="input" value="${existing.name || ""}" placeholder="Property Name" />
+              <label>Type</label>
+              <input id="propType" class="input" value="${existing.type || ""}" placeholder="Hotel, Condo, etc." />
+              <label>Location</label>
+              <input id="propLoc" class="input" value="${existing.location || ""}" placeholder="Location" />
+              <label>Rooms</label>
+              <input id="propRooms" class="input" type="number" value="${existing.rooms || 0}" placeholder="Rooms" />
+              <label>Image</label>
+              <div class="image-upload" style="text-align:center;">
+                <label for="propImg" class="btn ghost" style="cursor:pointer;">📷 Upload Image</label>
+                <input id="propImg" type="file" accept="image/*" style="display:none;">
+                <div id="previewImg" style="margin-top:10px;">
+                  <img src="${existing.image || "https://via.placeholder.com/150"}" style="width:120px;height:90px;border-radius:10px;object-fit:cover;border:1px solid ${border};">
+                </div>
+              </div>
+              <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+                <button id="cancelPropForm" class="btn ghost">Cancel</button>
+                <button id="savePropForm" class="btn">${editing ? "Update" : "Save"}</button>
+              </div>
+            </div>
+          `;
+          overlay.appendChild(form);
+          document.body.appendChild(overlay);
+
+          overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) overlay.remove();
+          });
+          form.querySelector("#cancelPropForm").onclick = () => overlay.remove();
+
+          const preview = form.querySelector("#previewImg img");
+          const fileInput = form.querySelector("#propImg");
+          fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = () => (preview.src = reader.result);
+              reader.readAsDataURL(file);
+            }
+          };
+
+          form.querySelector("#savePropForm").onclick = () => {
+            const id = form.querySelector("#propID").value.trim();
+            const name = form.querySelector("#propName").value.trim();
+            const type = form.querySelector("#propType").value.trim() || "Hotel";
+            const location = form.querySelector("#propLoc").value.trim() || "Unknown";
+            const rooms = form.querySelector("#propRooms").value.trim() || "0";
+            const image = preview.src;
+
+            if (!name) return alert("Please enter property name.");
+
+            const data = { id, name, type, location, rooms, image };
+            if (editing) properties[editIndex] = data;
+            else properties.push(data);
+
+            saveAndRender();
+            overlay.remove();
+          };
+        };
+
+        // Add Property
+        propertiesSection.querySelector("#addPropertyBtn").addEventListener("click", () => openPropertyForm());
+
+        // Edit/Delete
+        tableBody.addEventListener("click", (e) => {
+          const i = e.target.dataset.index;
+          if (e.target.classList.contains("edit-btn")) openPropertyForm(i);
+          if (e.target.classList.contains("delete-btn")) {
+            if (confirm("Delete this property?")) {
+              properties.splice(i, 1);
+              saveAndRender();
+            }
+          }
+        });
+      } else {
+        // Just show existing section
+        propertiesSection.style.display = "block";
+        propertiesSection.setAttribute("aria-hidden", "false");
+      }
+    });
+  }
+});
+
 /* ========= Upcoming checks ========= */
 function fillUpcoming(){
   const tbody = $('#upcomingChecks tbody'); if(!tbody) return;
@@ -417,6 +632,236 @@ function openSlide(title, html){
 }
 function closeSlide(){ $('#slide')?.classList.remove('open'); $('#overlay')?.classList.remove('show'); $('#slide')?.setAttribute('aria-hidden','true'); }
 $('#closeSlide')?.addEventListener('click', closeSlide); $('#overlay')?.addEventListener('click', closeSlide);
+
+// ==========================
+// 🏨 PROPERTIES SECTION (exclusive to Properties page)
+// ==========================
+document.addEventListener("DOMContentLoaded", () => {
+  const main = document.querySelector("main");
+  if (!main) return;
+
+  // --- Helper: Hide all sections/views ---
+  const hideAllViews = () => {
+    document.querySelectorAll(".view").forEach((v) => {
+      v.style.display = "none";
+      v.setAttribute("aria-hidden", "true");
+    });
+  };
+
+  // --- Sidebar Button ---
+  const propBtn = document.querySelector('[data-view="properties"]');
+  let propertiesSection;
+
+  if (propBtn) {
+    propBtn.addEventListener("click", () => {
+      hideAllViews(); // 🔹 Hide all other pages first
+
+      // Create or show Properties Section
+      if (!propertiesSection) {
+        propertiesSection = document.createElement("section");
+        propertiesSection.className = "view card";
+        propertiesSection.id = "view-properties";
+        propertiesSection.setAttribute("aria-hidden", "false");
+        propertiesSection.style.display = "block";
+
+        propertiesSection.innerHTML = `
+          <div class="section-head">
+            <div>
+              <div class="muted">Properties</div>
+              <h2>Manage Properties</h2>
+            </div>
+            <button id="addPropertyBtn" class="btn">Add Property</button>
+          </div>
+
+          <div class="card elevated" style="overflow-x:auto;">
+            <table id="propertiesTable" class="table" style="width:100%;">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Image</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Location</th>
+                  <th>Rooms</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        `;
+        main.appendChild(propertiesSection);
+
+        // --- Load and render property data ---
+        let properties = JSON.parse(localStorage.getItem("properties") || "[]");
+        const tableBody = propertiesSection.querySelector("#propertiesTable tbody");
+
+        const saveAndRender = () => {
+          localStorage.setItem("properties", JSON.stringify(properties));
+          renderProperties();
+        };
+
+        const renderProperties = () => {
+          tableBody.innerHTML = "";
+          if (properties.length === 0) {
+            tableBody.innerHTML = `
+              <tr><td colspan="7" class="muted-sm" style="text-align:center;">No properties added yet.</td></tr>
+            `;
+            return;
+          }
+          properties.forEach((p, i) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${p.id}</td>
+              <td><img src="${p.image || "https://via.placeholder.com/80"}" alt="${p.name}" style="width:80px;height:60px;object-fit:cover;border-radius:6px;"></td>
+              <td>${p.name}</td>
+              <td>${p.type}</td>
+              <td>${p.location}</td>
+              <td>${p.rooms}</td>
+              <td>
+                <button class="btn ghost edit-btn" data-index="${i}">Edit</button>
+                <button class="btn ghost danger delete-btn" data-index="${i}">Delete</button>
+              </td>
+            `;
+            tableBody.appendChild(row);
+          });
+        };
+        renderProperties();
+
+        // --- Modal Form Function ---
+        const openPropertyForm = (editIndex = null) => {
+          const editing = editIndex !== null;
+          const existing = editing ? properties[editIndex] : {};
+
+          const overlay = document.createElement("div");
+          overlay.className = "modal-overlay";
+          overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(6px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+          `;
+
+          const dark = document.body.classList.contains("dark-mode");
+          const bg = dark ? "#1f1f1f" : "#fff";
+          const fg = dark ? "#f2f2f2" : "#111";
+          const border = dark ? "#333" : "#ccc";
+
+          const form = document.createElement("div");
+          form.style.cssText = `
+            background:${bg};
+            color:${fg};
+            border:1px solid ${border};
+            padding:24px;
+            border-radius:16px;
+            width:90%;
+            max-width:440px;
+            box-shadow:0 6px 24px rgba(0,0,0,0.4);
+            animation:fadeInScale .25s ease;
+          `;
+          form.innerHTML = `
+            <h3 style="text-align:center;margin-bottom:12px;">${editing ? "Edit Property" : "Add Property"}</h3>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <label>ID</label>
+              <input id="propID" class="input" value="${editing ? existing.id : Date.now()}" readonly />
+              <label>Name</label>
+              <input id="propName" class="input" value="${existing.name || ""}" placeholder="Property Name" />
+              <label>Type</label>
+              <input id="propType" class="input" value="${existing.type || ""}" placeholder="Hotel, Condo, etc." />
+              <label>Location</label>
+              <input id="propLoc" class="input" value="${existing.location || ""}" placeholder="Location" />
+              <label>Rooms</label>
+              <input id="propRooms" class="input" type="number" value="${existing.rooms || 0}" placeholder="Rooms" />
+              <label>Image</label>
+              <div class="image-upload" style="text-align:center;">
+                <label for="propImg" class="btn ghost" style="cursor:pointer;">📷 Upload Image</label>
+                <input id="propImg" type="file" accept="image/*" style="display:none;">
+                <div id="previewImg" style="margin-top:10px;">
+                  <img src="${existing.image || "https://via.placeholder.com/150"}" style="width:120px;height:90px;border-radius:10px;object-fit:cover;border:1px solid ${border};">
+                </div>
+              </div>
+              <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+                <button id="cancelPropForm" class="btn ghost">Cancel</button>
+                <button id="savePropForm" class="btn">${editing ? "Update" : "Save"}</button>
+              </div>
+            </div>
+          `;
+          overlay.appendChild(form);
+          document.body.appendChild(overlay);
+
+          // --- Modal Events ---
+          overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) overlay.remove();
+          });
+          form.querySelector("#cancelPropForm").onclick = () => overlay.remove();
+
+          const preview = form.querySelector("#previewImg img");
+          const fileInput = form.querySelector("#propImg");
+          fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = () => (preview.src = reader.result);
+              reader.readAsDataURL(file);
+            }
+          };
+
+          // --- Save/Update ---
+          form.querySelector("#savePropForm").onclick = () => {
+            const id = form.querySelector("#propID").value.trim();
+            const name = form.querySelector("#propName").value.trim();
+            const type = form.querySelector("#propType").value.trim() || "Hotel";
+            const location = form.querySelector("#propLoc").value.trim() || "Unknown";
+            const rooms = form.querySelector("#propRooms").value.trim() || "0";
+            const image = preview.src;
+
+            if (!name) return alert("Please enter property name.");
+
+            const data = { id, name, type, location, rooms, image };
+            if (editing) properties[editIndex] = data;
+            else properties.push(data);
+
+            saveAndRender();
+            overlay.remove();
+          };
+        };
+
+        // --- Button Events ---
+        propertiesSection.querySelector("#addPropertyBtn").addEventListener("click", () => openPropertyForm());
+        tableBody.addEventListener("click", (e) => {
+          const i = e.target.dataset.index;
+          if (e.target.classList.contains("edit-btn")) openPropertyForm(i);
+          if (e.target.classList.contains("delete-btn")) {
+            if (confirm("Delete this property?")) {
+              properties.splice(i, 1);
+              saveAndRender();
+            }
+          }
+        });
+      } else {
+        // Just show existing section if already created
+        propertiesSection.style.display = "block";
+        propertiesSection.setAttribute("aria-hidden", "false");
+      }
+    });
+  }
+
+  // --- Hide properties when navigating elsewhere ---
+  document.querySelectorAll("[data-view]").forEach((btn) => {
+    if (btn.dataset.view !== "properties") {
+      btn.addEventListener("click", () => {
+        if (propertiesSection) {
+          propertiesSection.style.display = "none";
+          propertiesSection.setAttribute("aria-hidden", "true");
+        }
+      });
+    }
+  });
+});
 
 /* ========= CSV export ========= */
 function exportCSV(filename, rows){

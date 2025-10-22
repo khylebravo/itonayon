@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RentEase Staff Dashboard</title>
+
+  <!-- Font (Inter) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- Main CSS -->
+  <link rel="stylesheet" href="staff.css" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div id="app" class="app">
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="sidebar card" aria-label="Main navigation">
+      <div class="brand">
+        <button id="sidebarClose" class="icon-btn" title="Close sidebar"><i class="fas fa-angle-left"></i></button>
+        <div>Staff Dashboard</div>
+      </div>
+      <div class="muted">Overview · Bookings · Settings</div>
+
+      <nav id="nav" class="nav" aria-label="Primary">
+        <button class="nav-btn active" data-view="overview">Overview</button>
+        <button class="nav-btn" data-view="bookings">Bookings</button>
+        <button class="nav-btn" data-view="settings">Settings</button>
+      </nav>
+
+      <div class="quick">
+        <button id="addBookingBtn" class="btn">New Booking</button>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main" role="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="hamburger" class="icon-btn" aria-label="Toggle menu"><i class="fas fa-bars"></i></button>
+          <div class="search-wrap">
+            <input id="globalSearch" class="input" placeholder="Search bookings..." />
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <div id="userRoleTag" class="tag">Role: Staff</div>
+        </div>
+      </header>
+
+      <!-- OVERVIEW -->
+      <section id="view-overview" class="view card" aria-hidden="false">
+        <div id="kpiRow" class="kpis"></div>
+
+        <div class="grid-2">
+          <div class="card elevated">
+            <div class="card-head">
+              <div>
+                <div class="muted">Revenue (12 months)</div>
+                <div id="revenueTotal" class="revenue-total">$0</div>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="revenueChart"></canvas>
+            </div>
+          </div>
+
+          <aside class="card right-col elevated">
+            <div>
+              <div class="muted">Upcoming Check-ins</div>
+              <table id="upcomingChecks" class="table small-table">
+                <thead><tr><th>Guest</th><th>When</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- BOOKINGS -->
+      <section id="view-bookings" class="view card" aria-hidden="true" style="display:none">
+        <div class="section-head">
+          <div>
+            <div class="muted">Bookings & Rental History</div>
+            <h2>Manage bookings & rentals</h2>
+          </div>
+          <div class="table-search">
+            <input id="bookingSearch" class="input" placeholder="Search bookings..." />
+          </div>
+        </div>
+
+        <div class="card elevated">
+          <div class="card-head">
+            <div><strong>Bookings</strong></div>
+            <div class="muted-sm">Total: <span id="bookingsCount">0</span></div>
+          </div>
+          <table id="bookingsTable" class="table">
+            <thead><tr><th>ID</th><th>Guest</th><th>Property</th><th>Check-in</th><th>Check-out</th><th>Nights</th><th>Amount</th><th>Status</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="card elevated" style="margin-top:12px;">
+          <div class="card-head">
+            <div><strong>Rental History</strong></div>
+            <div class="muted-sm">Total: <span id="rentalsCount">0</span></div>
+          </div>
+          <table id="rentalsTable" class="table">
+            <thead><tr><th>ID</th><th>Property</th><th>Guest</th><th>Period</th><th>Nights</th><th>Gross</th><th>Net</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="view-settings" class="view card" aria-hidden="true" style="display:none">
+        <div class="section-head">
+          <div>
+            <div class="muted">Settings</div>
+            <h2>Preferences</h2>
+          </div>
+          <div class="small-muted">Saved locally</div>
+        </div>
+
+        <div class="card elevated settings-card">
+          <div class="settings-row">
+            <div>
+              <div class="label-strong">Dark mode</div>
+              <div class="muted-sm">Toggle UI theme</div>
+            </div>
+            <div class="toggle">
+              <label id="darkModeSwitchSettings" class="switch" role="switch" aria-checked="false">
+                <span class="knob"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="label-strong">Email notifications</div>
+              <div class="muted-sm">Booking & payout emails</div>
+            </div>
+            <div class="toggle">
+              <label id="emailNotifSwitch" class="switch" role="switch" aria-checked="true">
+                <span class="knob"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="label-strong">Default currency</div>
+              <div class="muted-sm">Display & export currency</div>
+            </div>
+            <div>
+              <select id="defaultCurrency" class="select-small">
+                <option value="USD">USD</option>
+                <option value="PHP">PHP</option>
+                <option value="EUR">EUR</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="footer card">Dashboard demo • Mock data • Local-only</div>
+    </main>
+  </div>
+
+  <aside id="slide" class="slide" aria-hidden="true">
+    <div class="slide-head">
+      <div id="slideTitle" class="slide-title">Details</div>
+      <div><button id="closeSlide" class="btn ghost">Close</button></div>
+    </div>
+    <div id="slideBody" class="slide-body"></div>
+  </aside>
+
+  <!-- Main JS -->
+  <script src="staff.js"></script>
+</body>
+</html>
