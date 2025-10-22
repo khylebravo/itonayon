@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RentEase</title>
+  <link rel="stylesheet" href="login.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Left Promo Section -->
+    <div class="promo">
+      <div class="overlay">
+        <h1>RentEase</h1>
+        <h2>Welcome to RentEase</h2>
+        <p>Connect with premium hotels, condos, and houses. Whether you're an owner or renter, find your perfect match.</p>
+        <ul>
+          <li>Premium property listings</li>
+          <li>24/7 customer support</li>
+          <li>Secure booking system</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Right Section -->
+    <div class="login">
+      <h2 id="formTitle">Sign In</h2>
+      <p id="formSubtitle">Choose your role and access your account</p>
+
+      <!-- Role Selection -->
+      <div class="roles">
+        <button class="role active" data-role="Owner">Owner</button>
+        <button class="role" data-role="Renter">Renter</button>
+        <button class="role" data-role="Manager">Manager</button>
+      </div>
+
+      <!-- Tabs for Renter -->
+      <div id="renterTabs" class="tabs hidden">
+        <button class="tab active" data-tab="login">Login</button>
+        <button class="tab" data-tab="register">Register</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" class="form active">
+        <label>Email Address</label>
+        <input type="email" id="loginEmail" placeholder="Enter your email" required>
+
+        <label>Password</label>
+        <input type="password" id="loginPassword" placeholder="Enter your password" required>
+
+        <div class="options">
+          <label><input type="checkbox" id="remember"> Remember me</label>
+          <a href="#">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="btn">Sign In</button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="registerForm" class="form">
+        <label>Full Name</label>
+        <input type="text" id="regName" placeholder="Enter your full name" required>
+
+        <label>Email Address</label>
+        <input type="email" id="regEmail" placeholder="Enter your email" required>
+
+        <label>Password</label>
+        <input type="password" id="regPassword" placeholder="Create a password" required>
+
+        <label>Confirm Password</label>
+        <input type="password" id="regConfirm" placeholder="Confirm your password" required>
+
+        <label>Address</label>
+        <textarea id="regAddress" placeholder="Enter your address" rows="3" required></textarea>
+
+        <label>Upload ID</label>
+        <input type="file" id="regIdUpload" accept=".jpg,.jpeg,.png,.pdf" required>
+
+        <button type="submit" class="btn">Register</button>
+      </form>
+
+  <script src="login.js"></script>
+</body>
+</html>

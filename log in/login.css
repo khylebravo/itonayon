@@ -1,0 +1,91 @@
+/* General Reset */
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: "Segoe UI", sans-serif; }
+
+body {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f4f6f9;
+}
+
+.container {
+  display: flex;
+  width: 90%;
+  max-width: 1100px;
+  height: 600px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+
+/* Left Promo Section */
+.promo {
+  flex: 1;
+  background: url('https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=800&q=80') center/cover no-repeat;
+  position: relative;
+  color: #fff;
+}
+.promo .overlay { background: rgba(0,0,0,0.6); height: 100%; padding: 40px; }
+.promo h1 { font-size: 32px; margin-bottom: 10px; }
+.promo h2 { font-size: 20px; margin-bottom: 15px; }
+.promo p { margin-bottom: 15px; line-height: 1.5; }
+.promo ul { list-style: none; }
+.promo ul li { margin-bottom: 8px; padding-left: 20px; position: relative; }
+.promo ul li::before { content: "✔"; position: absolute; left: 0; color: #00ffcc; }
+
+/* Right Login Section */
+.login { flex: 1; padding: 40px; display: flex; flex-direction: column; justify-content: center; }
+.login h2 { margin-bottom: 5px; }
+.login p { margin-bottom: 20px; color: #555; }
+
+/* Roles */
+.roles { display: flex; gap: 10px; margin-bottom: 20px; }
+.role { flex: 1; padding: 10px; border: 1px solid #ccc; background: #fafafa; cursor: pointer; border-radius: 6px; transition: 0.3s; }
+.role.active { background: #0078d7; color: #fff; border-color: #0078d7; }
+
+/* Tabs for renter */
+.tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+.tabs.hidden { display: none; }
+.tab { flex: 1; padding: 8px; border: 1px solid #ccc; background: #eee; cursor: pointer; border-radius: 6px; }
+.tab.active { background: #0078d7; color: #fff; border-color: #0078d7; }
+
+/* Forms */
+.form { display: none; }
+.form.active { display: block; }
+form label { display: block; margin-bottom: 5px; font-weight: 600; }
+form input, form textarea {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+/* Scrollable register form */
+#registerForm {
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+/* Options row */
+.options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+.options label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.options a { text-decoration: none; color: #0078d7; font-weight: 500; }
+.options a:hover { text-decoration: underline; }
+
+/* Buttons */
+.btn { width: 100%; padding: 12px; background: #0078d7; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+.btn:hover { background: #005fa3; }
+
+/* Property Icons */
+.property-icons { margin-top: 30px; text-align: center; font-size: 18px; color: #333; }
+.property-icons span { margin: 0 10px; }
