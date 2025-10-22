@@ -425,49 +425,6 @@ function exportCSV(filename, rows){
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename || 'export.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
-/* ========= Auth UI (demo) ========= */
-const authKey = 'md_current_user';
-function getCurrentUser(){ try { return JSON.parse(sessionStorage.getItem(authKey)); } catch(e){ return null; } }
-function setCurrentUser(user){ sessionStorage.setItem(authKey, JSON.stringify(user)); }
-function clearCurrentUser(){ sessionStorage.removeItem(authKey); }
-
-function renderAuthArea(){
-  const authArea = $('#authArea'); if(!authArea) return;
-  const user = getCurrentUser();
-  authArea.innerHTML = '';
-  if(user){
-    const span = document.createElement('div'); span.className='muted-sm'; span.textContent = user.name + ' (' + user.role + ')';
-    const btn = document.createElement('button'); btn.className='btn ghost'; btn.id='logoutBtn'; btn.textContent='Logout';
-    authArea.appendChild(span); authArea.appendChild(btn);
-    $('#logoutBtn')?.addEventListener('click', ()=> { clearCurrentUser(); renderAuthArea(); });
-  } else {
-    const loginBtn = document.createElement('button'); loginBtn.className='btn'; loginBtn.id='loginBtn'; loginBtn.textContent='Login';
-    authArea.appendChild(loginBtn);
-    $('#loginBtn')?.addEventListener('click', openLoginModal);
-  }
-}
-
-function openLoginModal(){
-  const html = `<div style="font-weight:700;margin-bottom:8px">Sign in</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <input id="li_email" class="input" placeholder="Email" />
-      <input id="li_password" class="input" placeholder="Password" type="password" />
-      <div style="display:flex;gap:8px"><button id="doLogin" class="btn">Sign in</button><button id="cancelLogin" class="btn ghost">Cancel</button></div>
-      <div class="muted-sm" style="margin-top:10px">Demo: use any mock user email</div>
-    </div>`;
-  openSlide('Login', html);
-  setTimeout(()=> {
-    $('#cancelLogin')?.addEventListener('click', closeSlide);
-    $('#doLogin')?.addEventListener('click', ()=> {
-      const email = ($('#li_email')?.value || '').trim().toLowerCase();
-      if(!email){ alert('Enter email'); return; }
-      const u = users.find(x=>x.email === email) || {id: uid('u'), name: email.split('@')[0], email, role:'readonly', status:'active'};
-      setCurrentUser({id:u.id, name:u.name, email:u.email, role:u.role});
-      closeSlide(); renderAuthArea();
-    });
-  },60);
-}
-
 /* ========= Listeners ========= */
 function attachListeners(){
   // Create shortcuts
